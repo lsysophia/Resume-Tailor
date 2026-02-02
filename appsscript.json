@@ -1,0 +1,35 @@
+{
+  "timeZone": "America/Los_Angeles",
+  "dependencies": {
+    "enabledAdvancedServices": [
+      {
+        "userSymbol": "Docs",
+        "serviceId": "docs",
+        "version": "v1"
+      }
+    ]
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8",
+  "oauthScopes": [
+    "https://www.googleapis.com/auth/documents.currentonly",
+    "https://www.googleapis.com/auth/documents",
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/script.container.ui",
+    "https://www.googleapis.com/auth/script.external_request"
+  ],
+  "addOns": {
+    "common": {
+      "name": "Resume Tailor",
+      "logoUrl": "https://www.gstatic.com/images/branding/product/2x/docs_2020q4_48dp.png",
+      "layoutProperties": {
+        "primaryColor": "#4285F4"
+      }
+    },
+    "docs": {
+      "homepageTrigger": {
+        "runFunction": "onHomepage"
+      }
+    }
+  }
+}

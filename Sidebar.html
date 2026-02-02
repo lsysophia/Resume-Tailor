@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Google Sans', Roboto, Arial, sans-serif;
+      font-size: 14px;
+      margin: 0;
+      padding: 16px;
+      color: #202124;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 500;
+      margin: 0 0 16px 0;
+      color: #1a73e8;
+    }
+
+    h3 {
+      font-size: 14px;
+      font-weight: 500;
+      margin: 16px 0 8px 0;
+      color: #202124;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .template-status {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .template-status.not-set {
+      background: #fef7e0;
+      border: 1px solid #fbbc04;
+    }
+
+    .template-status.set {
+      background: #e6f4ea;
+      border: 1px solid #34a853;
+    }
+
+    .template-name {
+      font-weight: 500;
+      margin-bottom: 4px;
+    }
+
+    .template-hint {
+      font-size: 12px;
+      color: #5f6368;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      padding: 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+    }
+
+    textarea:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .btn-primary {
+      background-color: #1a73e8;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #1557b0;
+    }
+
+    .btn-primary:disabled {
+      background-color: #dadce0;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background-color: #fff;
+      color: #1a73e8;
+      border: 1px solid #dadce0;
+    }
+
+    .btn-secondary:hover {
+      background-color: #f8f9fa;
+    }
+
+    .btn-success {
+      background-color: #34a853;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background-color: #2d8e47;
+    }
+
+    .btn-warning {
+      background-color: #fbbc04;
+      color: #202124;
+    }
+
+    .btn-warning:hover {
+      background-color: #e5a800;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+      width: auto;
+      margin: 0;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+      color: #5f6368;
+    }
+
+    .loading.show {
+      display: block;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #1a73e8;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .results {
+      display: none;
+    }
+
+    .results.show {
+      display: block;
+    }
+
+    .score-container {
+      text-align: center;
+      padding: 20px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .score {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .score.high {
+      color: #34a853;
+    }
+
+    .score.medium {
+      color: #fbbc04;
+    }
+
+    .score.low {
+      color: #ea4335;
+    }
+
+    .score-label {
+      color: #5f6368;
+      font-size: 12px;
+    }
+
+    .summary {
+      background: #e8f0fe;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      color: #174ea6;
+    }
+
+    .list-section {
+      margin-bottom: 16px;
+    }
+
+    .list-section h4 {
+      font-size: 13px;
+      font-weight: 500;
+      margin: 0 0 8px 0;
+      color: #5f6368;
+    }
+
+    .chip-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .chip {
+      display: inline-block;
+      padding: 4px 10px;
+      background: #e8eaed;
+      border-radius: 16px;
+      font-size: 12px;
+      color: #3c4043;
+    }
+
+    .chip.success {
+      background: #e6f4ea;
+      color: #137333;
+    }
+
+    .chip.warning {
+      background: #fef7e0;
+      color: #b05a00;
+    }
+
+    .error {
+      background: #fce8e6;
+      color: #c5221f;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .error.show {
+      display: block;
+    }
+
+    .tailoring-results {
+      display: none;
+    }
+
+    .tailoring-results.show {
+      display: block;
+    }
+
+    .copy-info {
+      background: #e6f4ea;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .copy-info a {
+      color: #137333;
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .copy-info a:hover {
+      text-decoration: underline;
+    }
+
+    .change-card {
+      background: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .change-section {
+      font-size: 11px;
+      color: #5f6368;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    .change-original {
+      background: #fce8e6;
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 13px;
+      text-decoration: line-through;
+      color: #5f6368;
+    }
+
+    .change-tailored {
+      background: #e6f4ea;
+      padding: 8px;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .change-reason {
+      font-size: 12px;
+      color: #5f6368;
+      font-style: italic;
+    }
+
+    .change-actions {
+      margin-top: 8px;
+      display: flex;
+      gap: 8px;
+    }
+
+    .change-actions .btn {
+      width: auto;
+      padding: 6px 12px;
+      font-size: 12px;
+      margin: 0;
+    }
+
+    .notes {
+      background: #fff8e1;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #6a4c00;
+      margin-top: 16px;
+    }
+
+    .divider {
+      height: 1px;
+      background: #dadce0;
+      margin: 20px 0;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Resume Tailor</h2>
+
+  <!-- Template Status -->
+  <div id="template-status" class="template-status not-set">
+    <div class="template-name" id="template-name">No template set</div>
+    <div class="template-hint" id="template-hint">
+      Open your resume and click "Set This Doc as Template" in the add-on menu.
+    </div>
+  </div>
+
+  <!-- Match Threshold Slider -->
+  <div class="settings-section" style="margin-bottom: 16px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+      <label style="font-size: 12px; color: #5f6368;">Min match to tailor:</label>
+      <span id="threshold-value" style="font-size: 12px; font-weight: 500; color: #1a73e8;">80%</span>
+    </div>
+    <input type="range" id="threshold-slider" min="50" max="100" value="80" step="5"
+           style="width: 100%; cursor: pointer;" onchange="updateThreshold(this.value)">
+    <div style="display: flex; justify-content: space-between; font-size: 10px; color: #9aa0a6;">
+      <span>50% (lenient)</span>
+      <span>100% (strict)</span>
+    </div>
+  </div>
+
+  <!-- AI Provider -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 8px 12px; background: #f8f9fa; border-radius: 6px;">
+    <span style="font-size: 12px; color: #5f6368;">AI: <strong id="ai-provider-name">Loading...</strong></span>
+    <a href="#" onclick="openAISettings(); return false;" style="font-size: 11px; color: #1a73e8; text-decoration: none;">Change</a>
+  </div>
+
+  <!-- Error Display -->
+  <div id="error" class="error"></div>
+
+  <!-- Job Description Input -->
+  <div id="input-section" class="section">
+    <label for="job-description"><strong>Job Posting URL or Description:</strong></label>
+    <textarea id="job-description" placeholder="Paste a job URL (e.g., https://linkedin.com/jobs/...) or the full job description text..."></textarea>
+    <button id="analyze-btn" class="btn btn-primary" onclick="analyze()">
+      Analyze Match
+    </button>
+    <p style="font-size: 11px; color: #5f6368; margin-top: 8px; text-align: center;">
+      Tip: If URL doesn't work (login required), copy and paste the job text instead.
+    </p>
+  </div>
+
+  <!-- Loading State -->
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div id="loading-text">Analyzing your resume...</div>
+  </div>
+
+  <!-- Analysis Results -->
+  <div id="results" class="results">
+    <div class="score-container">
+      <div id="score" class="score">--</div>
+      <div class="score-label">Match Score</div>
+    </div>
+
+    <div id="summary" class="summary"></div>
+
+    <div class="list-section">
+      <h4>Strengths</h4>
+      <div id="strengths" class="chip-list"></div>
+    </div>
+
+    <div class="list-section">
+      <h4>Gaps</h4>
+      <div id="gaps" class="chip-list"></div>
+    </div>
+
+    <div class="list-section">
+      <h4>Keywords Matched</h4>
+      <div id="keywords-matched" class="chip-list"></div>
+    </div>
+
+    <div class="list-section">
+      <h4>Keywords Missing</h4>
+      <div id="keywords-missing" class="chip-list"></div>
+    </div>
+
+    <div id="recommendation" class="notes"></div>
+
+    <div class="divider"></div>
+
+    <div id="tailor-section">
+      <button id="tailor-btn" class="btn btn-success" onclick="tailor()">
+        Create Tailored Copy
+      </button>
+      <p id="tailor-note" style="font-size: 12px; color: #5f6368; text-align: center; margin-top: 8px;"></p>
+    </div>
+
+    <button class="btn btn-secondary" onclick="reset()">
+      Start Over
+    </button>
+  </div>
+
+  <!-- Tailoring Results -->
+  <div id="tailoring-results" class="tailoring-results">
+    <h3>Tailored Resume Created</h3>
+
+    <div id="copy-info" class="copy-info">
+      <div style="margin-bottom: 8px;">Your tailored resume is open in a new tab:</div>
+      <a id="copy-link" href="#" target="_blank">Open Tailored Resume</a>
+      <div style="font-size: 11px; color: #137333; margin-top: 4px;">Changes are highlighted in the document for your review.</div>
+    </div>
+
+    <h3>Suggested Changes</h3>
+    <p style="font-size: 12px; color: #5f6368; margin-bottom: 12px;">
+      Changes are highlighted in your document. Review and accept/reject each one.
+    </p>
+
+    <div class="action-bar">
+      <button class="btn btn-success btn-small" onclick="acceptAllChanges()">Accept All</button>
+      <button class="btn btn-secondary btn-small" onclick="rejectAllChanges()">Reject All</button>
+    </div>
+
+    <div id="changes-list"></div>
+    <div id="tailoring-notes" class="notes" style="display: none;"></div>
+
+    <div class="divider"></div>
+
+    <button class="btn btn-secondary" onclick="reset()">
+      Tailor for Another Job
+    </button>
+  </div>
+
+  <script>
+    let currentAnalysis = null;
+    let jobDescription = '';
+    let candidateName = '';
+    let currentCopyId = null;
+    let currentChanges = [];
+    let templateCheckInterval = null;
+
+    // Initialize - check template status and load settings
+    document.addEventListener('DOMContentLoaded', function() {
+      checkTemplateStatus();
+      loadThresholdSetting();
+      loadAIProvider();
+    });
+
+    function loadThresholdSetting() {
+      google.script.run
+        .withSuccessHandler(function(score) {
+          document.getElementById('threshold-slider').value = score;
+          document.getElementById('threshold-value').textContent = score + '%';
+        })
+        .getMinMatchScore();
+    }
+
+    function loadAIProvider() {
+      google.script.run
+        .withSuccessHandler(function(settings) {
+          const provider = settings.providers.find(p => p.id === settings.currentProvider);
+          const nameEl = document.getElementById('ai-provider-name');
+          if (provider) {
+            nameEl.textContent = provider.name.split(' ')[0]; // Just "Claude", "GPT", or "Gemini"
+            if (!provider.hasKey) {
+              nameEl.innerHTML += ' <span style="color: #ea4335; font-size: 10px;">(no key)</span>';
+            }
+          } else {
+            nameEl.textContent = 'Not configured';
+          }
+        })
+        .withFailureHandler(function() {
+          document.getElementById('ai-provider-name').textContent = 'Error';
+        })
+        .getAISettings();
+    }
+
+    function openAISettings() {
+      google.script.run.showApiKeyDialog();
+    }
+
+    function updateThreshold(value) {
+      document.getElementById('threshold-value').textContent = value + '%';
+      google.script.run.setMinMatchScore(parseInt(value, 10));
+    }
+
+    // Start polling for template status if not set
+    function startTemplatePolling() {
+      if (templateCheckInterval) return; // Already polling
+      templateCheckInterval = setInterval(function() {
+        google.script.run
+          .withSuccessHandler(function(info) {
+            if (info.hasTemplate) {
+              handleTemplateStatus(info);
+              stopTemplatePolling();
+            }
+          })
+          .getTemplateInfo();
+      }, 2000); // Check every 2 seconds
+    }
+
+    function stopTemplatePolling() {
+      if (templateCheckInterval) {
+        clearInterval(templateCheckInterval);
+        templateCheckInterval = null;
+      }
+    }
+
+    function checkTemplateStatus() {
+      google.script.run
+        .withSuccessHandler(handleTemplateStatus)
+        .withFailureHandler(function() {
+          // Silently fail - template status will show as not set
+        })
+        .getTemplateInfo();
+    }
+
+    function handleTemplateStatus(info) {
+      const statusEl = document.getElementById('template-status');
+      const nameEl = document.getElementById('template-name');
+      const hintEl = document.getElementById('template-hint');
+
+      if (info.hasTemplate) {
+        statusEl.classList.remove('not-set');
+        statusEl.classList.add('set');
+        nameEl.textContent = 'Template: ' + info.templateName;
+        hintEl.textContent = 'Your original resume will not be modified.';
+        stopTemplatePolling(); // Stop polling once template is set
+      } else {
+        statusEl.classList.remove('set');
+        statusEl.classList.add('not-set');
+        nameEl.textContent = 'No template set';
+        hintEl.textContent = 'Open your resume and click "Set This Doc as Template" in the add-on menu.';
+        startTemplatePolling(); // Start polling to detect when template is set
+      }
+    }
+
+    function showError(message) {
+      const el = document.getElementById('error');
+      el.textContent = message;
+      el.classList.add('show');
+    }
+
+    function hideError() {
+      document.getElementById('error').classList.remove('show');
+    }
+
+    function showLoading(text) {
+      document.getElementById('loading-text').textContent = text;
+      document.getElementById('loading').classList.add('show');
+      document.getElementById('input-section').style.display = 'none';
+      document.getElementById('results').classList.remove('show');
+      document.getElementById('tailoring-results').classList.remove('show');
+    }
+
+    function hideLoading() {
+      document.getElementById('loading').classList.remove('show');
+    }
+
+    function analyze() {
+      hideError();
+      jobDescription = document.getElementById('job-description').value.trim();
+
+      if (!jobDescription) {
+        showError('Please paste a job description first.');
+        return;
+      }
+
+      // Check if it's a URL to show appropriate loading message
+      const isUrl = jobDescription.match(/^https?:\/\//i);
+      showLoading(isUrl ? 'Fetching job posting and analyzing...' : 'Analyzing your resume against the job description...');
+
+      google.script.run
+        .withSuccessHandler(handleAnalysisResult)
+        .withFailureHandler(handleError)
+        .analyzeJob(jobDescription);
+    }
+
+    function handleAnalysisResult(result) {
+      hideLoading();
+
+      if (!result.success) {
+        showError(result.error);
+        document.getElementById('input-section').style.display = 'block';
+        return;
+      }
+
+      currentAnalysis = result.analysis;
+      candidateName = result.candidateName || '';
+      displayResults(result);
+    }
+
+    function displayResults(result) {
+      const analysis = result.analysis;
+
+      // Score
+      const scoreEl = document.getElementById('score');
+      scoreEl.textContent = analysis.matchScore + '%';
+      scoreEl.className = 'score ' + (
+        analysis.matchScore >= 80 ? 'high' :
+        analysis.matchScore >= 60 ? 'medium' : 'low'
+      );
+
+      // Summary
+      document.getElementById('summary').textContent = analysis.summary;
+
+      // Strengths
+      document.getElementById('strengths').innerHTML =
+        (analysis.strengths || []).map(s => `<span class="chip success">${s}</span>`).join('');
+
+      // Gaps
+      document.getElementById('gaps').innerHTML =
+        (analysis.gaps || []).map(g => `<span class="chip warning">${g}</span>`).join('');
+
+      // Keywords
+      document.getElementById('keywords-matched').innerHTML =
+        (analysis.keywordsMatched || []).map(k => `<span class="chip success">${k}</span>`).join('');
+
+      document.getElementById('keywords-missing').innerHTML =
+        (analysis.keywordsMissing || []).map(k => `<span class="chip warning">${k}</span>`).join('');
+
+      // Recommendation
+      document.getElementById('recommendation').textContent = analysis.recommendation;
+
+      // Tailor button - always enabled, but with different messaging
+      const tailorBtn = document.getElementById('tailor-btn');
+      const tailorNote = document.getElementById('tailor-note');
+
+      tailorBtn.disabled = false; // Always allow tailoring
+
+      if (result.canTailor) {
+        tailorBtn.classList.remove('btn-warning');
+        tailorBtn.classList.add('btn-success');
+        tailorNote.textContent = 'Great match! Click to create a tailored copy of your resume.';
+        tailorNote.style.color = '#5f6368';
+      } else {
+        tailorBtn.classList.remove('btn-success');
+        tailorBtn.classList.add('btn-warning');
+        tailorNote.innerHTML = `Below your ${result.minScoreRequired}% threshold, but you can still tailor if you want to apply.`;
+        tailorNote.style.color = '#b05a00';
+      }
+
+      document.getElementById('results').classList.add('show');
+    }
+
+    function tailor() {
+      if (!currentAnalysis || !jobDescription) {
+        showError('Please analyze a job description first.');
+        return;
+      }
+
+      showLoading('Creating tailored copy and generating suggestions...');
+
+      google.script.run
+        .withSuccessHandler(handleTailoringResult)
+        .withFailureHandler(handleError)
+        .tailorForJob(jobDescription, currentAnalysis, candidateName);
+    }
+
+    function handleTailoringResult(result) {
+      if (!result.success) {
+        hideLoading();
+        showError(result.error);
+        document.getElementById('results').classList.add('show');
+        return;
+      }
+
+      currentCopyId = result.copy.copyId;
+      currentChanges = result.tailoring.changes || [];
+
+      // Show copy link
+      const copyLink = document.getElementById('copy-link');
+      copyLink.href = result.copy.copyUrl;
+      copyLink.textContent = result.copy.copyName;
+
+      // Open the new document in a new tab
+      window.open(result.copy.copyUrl, '_blank');
+
+      // Apply all suggestions visually to the document
+      if (currentChanges.length > 0) {
+        showLoading('Applying suggestions to document...');
+        google.script.run
+          .withSuccessHandler(function(applyResult) {
+            hideLoading();
+            displayTailoringResults(result.tailoring, applyResult);
+          })
+          .withFailureHandler(function(err) {
+            hideLoading();
+            displayTailoringResults(result.tailoring, null);
+          })
+          .applyAllSuggestionsVisual(currentCopyId, currentChanges);
+      } else {
+        hideLoading();
+        displayTailoringResults(result.tailoring, null);
+      }
+    }
+
+    function displayTailoringResults(tailoring, applyResult) {
+      const changesList = document.getElementById('changes-list');
+      changesList.innerHTML = '';
+
+      if (tailoring.changes && tailoring.changes.length > 0) {
+        // Add info message about visual suggestions
+        const infoMsg = document.createElement('div');
+        infoMsg.style.cssText = 'background: #e8f0fe; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #174ea6;';
+        infoMsg.innerHTML = `
+          <strong>Suggestions applied to document!</strong><br>
+          <span style="color: #ea4335; text-decoration: line-through;">Red strikethrough</span> = text to remove<br>
+          <span style="color: #34a853;">Green text</span> = suggested replacement<br>
+          Use the buttons below to accept or reject each change.
+        `;
+        changesList.appendChild(infoMsg);
+
+        tailoring.changes.forEach((change, index) => {
+          const card = document.createElement('div');
+          card.className = 'change-card';
+          card.id = 'change-' + index;
+          card.innerHTML = `
+            <div class="change-section">${change.section}</div>
+            <div class="change-original">${escapeHtml(change.original)}</div>
+            <div class="change-tailored">${escapeHtml(change.tailored)}</div>
+            <div class="change-reason">${escapeHtml(change.reason)}</div>
+            <div class="change-actions">
+              <button class="btn btn-success" onclick="acceptChange(${index}, this)">Accept</button>
+              <button class="btn btn-secondary" onclick="rejectChange(${index}, this)">Reject</button>
+            </div>
+          `;
+          changesList.appendChild(card);
+        });
+      } else {
+        changesList.innerHTML = '<p style="color: #5f6368;">No changes suggested. Your resume is already well-aligned!</p>';
+      }
+
+      // Notes
+      const notesEl = document.getElementById('tailoring-notes');
+      if (tailoring.overallNotes) {
+        notesEl.textContent = tailoring.overallNotes;
+        notesEl.style.display = 'block';
+      } else {
+        notesEl.style.display = 'none';
+      }
+
+      document.getElementById('results').classList.remove('show');
+      document.getElementById('tailoring-results').classList.add('show');
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function acceptChange(index, btn) {
+      const change = currentChanges[index];
+      if (!change || !currentCopyId) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Accepting...';
+      const card = document.getElementById('change-' + index);
+      const rejectBtn = card.querySelector('.btn-secondary');
+      if (rejectBtn) rejectBtn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            card.style.background = '#e6f4ea';
+            card.style.opacity = '0.7';
+            btn.textContent = 'Accepted';
+            btn.disabled = true;
+            if (rejectBtn) rejectBtn.style.display = 'none';
+          } else {
+            btn.textContent = 'Failed';
+            setTimeout(() => {
+              btn.textContent = 'Accept';
+              btn.disabled = false;
+              if (rejectBtn) rejectBtn.disabled = false;
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = 'Error';
+          setTimeout(() => {
+            btn.textContent = 'Accept';
+            btn.disabled = false;
+            if (rejectBtn) rejectBtn.disabled = false;
+          }, 2000);
+        })
+        .acceptSuggestedChange(currentCopyId, change.original, change.tailored);
+    }
+
+    function rejectChange(index, btn) {
+      const change = currentChanges[index];
+      if (!change || !currentCopyId) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Rejecting...';
+      const card = document.getElementById('change-' + index);
+      const acceptBtn = card.querySelector('.btn-success');
+      if (acceptBtn) acceptBtn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            card.style.background = '#fce8e6';
+            card.style.opacity = '0.7';
+            btn.textContent = 'Rejected';
+            btn.disabled = true;
+            if (acceptBtn) acceptBtn.style.display = 'none';
+          } else {
+            btn.textContent = 'Failed';
+            setTimeout(() => {
+              btn.textContent = 'Reject';
+              btn.disabled = false;
+              if (acceptBtn) acceptBtn.disabled = false;
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = 'Error';
+          setTimeout(() => {
+            btn.textContent = 'Reject';
+            btn.disabled = false;
+            if (acceptBtn) acceptBtn.disabled = false;
+          }, 2000);
+        })
+        .rejectSuggestedChange(currentCopyId, change.original, change.tailored);
+    }
+
+    function acceptAllChanges() {
+      if (!currentChanges.length || !currentCopyId) return;
+
+      showLoading('Accepting all changes...');
+      let completed = 0;
+      let succeeded = 0;
+
+      currentChanges.forEach((change, index) => {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            completed++;
+            if (result.success) {
+              succeeded++;
+              const card = document.getElementById('change-' + index);
+              if (card) {
+                card.style.background = '#e6f4ea';
+                card.style.opacity = '0.7';
+                const btn = card.querySelector('.btn-success');
+                if (btn) {
+                  btn.textContent = 'Accepted';
+                  btn.disabled = true;
+                }
+                const rejectBtn = card.querySelector('.btn-secondary');
+                if (rejectBtn) rejectBtn.style.display = 'none';
+              }
+            }
+            if (completed === currentChanges.length) {
+              hideLoading();
+              alert(`Accepted ${succeeded} of ${currentChanges.length} changes. Check your document.`);
+            }
+          })
+          .withFailureHandler(function() {
+            completed++;
+            if (completed === currentChanges.length) {
+              hideLoading();
+              alert(`Accepted ${succeeded} of ${currentChanges.length} changes. Check your document.`);
+            }
+          })
+          .acceptSuggestedChange(currentCopyId, change.original, change.tailored);
+      });
+    }
+
+    function rejectAllChanges() {
+      if (!currentChanges.length || !currentCopyId) return;
+
+      showLoading('Rejecting all changes...');
+      let completed = 0;
+      let succeeded = 0;
+
+      currentChanges.forEach((change, index) => {
+        google.script.run
+          .withSuccessHandler(function(result) {
+            completed++;
+            if (result.success) {
+              succeeded++;
+              const card = document.getElementById('change-' + index);
+              if (card) {
+                card.style.background = '#fce8e6';
+                card.style.opacity = '0.7';
+                const btn = card.querySelector('.btn-secondary');
+                if (btn) {
+                  btn.textContent = 'Rejected';
+                  btn.disabled = true;
+                }
+                const acceptBtn = card.querySelector('.btn-success');
+                if (acceptBtn) acceptBtn.style.display = 'none';
+              }
+            }
+            if (completed === currentChanges.length) {
+              hideLoading();
+              alert(`Rejected ${succeeded} of ${currentChanges.length} changes. Original text restored.`);
+            }
+          })
+          .withFailureHandler(function() {
+            completed++;
+            if (completed === currentChanges.length) {
+              hideLoading();
+              alert(`Rejected ${succeeded} of ${currentChanges.length} changes.`);
+            }
+          })
+          .rejectSuggestedChange(currentCopyId, change.original, change.tailored);
+      });
+    }
+
+    function reset() {
+      document.getElementById('job-description').value = '';
+      document.getElementById('results').classList.remove('show');
+      document.getElementById('tailoring-results').classList.remove('show');
+      document.getElementById('input-section').style.display = 'block';
+      currentAnalysis = null;  // Contains companyName and positionTitle from Claude
+      jobDescription = '';
+      candidateName = '';
+      currentCopyId = null;
+      currentChanges = [];
+      hideError();
+      checkTemplateStatus();
+    }
+
+    function handleError(error) {
+      hideLoading();
+      document.getElementById('input-section').style.display = 'block';
+      showError(error.message || 'An unexpected error occurred.');
+    }
+  </script>
+</body>
+</html>

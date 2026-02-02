@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body {
+      font-family: 'Google Sans', Roboto, Arial, sans-serif;
+      font-size: 14px;
+      margin: 0;
+      padding: 20px;
+      color: #202124;
+    }
+
+    h3 {
+      margin: 0 0 12px 0;
+      font-weight: 500;
+    }
+
+    p {
+      margin: 0 0 16px 0;
+      color: #5f6368;
+      font-size: 13px;
+    }
+
+    .section {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e8eaed;
+    }
+
+    .section:last-of-type {
+      border-bottom: none;
+    }
+
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    select, input[type="password"], input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-bottom: 8px;
+      box-sizing: border-box;
+    }
+
+    select:focus, input:focus {
+      outline: none;
+      border-color: #1a73e8;
+    }
+
+    .provider-card {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+
+    .provider-card.selected {
+      background: #e8f0fe;
+      border: 1px solid #1a73e8;
+    }
+
+    .provider-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .provider-name {
+      font-weight: 500;
+    }
+
+    .provider-status {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    .provider-status.configured {
+      background: #e6f4ea;
+      color: #137333;
+    }
+
+    .provider-status.not-configured {
+      background: #fce8e6;
+      color: #c5221f;
+    }
+
+    .api-link {
+      font-size: 12px;
+      color: #1a73e8;
+      text-decoration: none;
+    }
+
+    .api-link:hover {
+      text-decoration: underline;
+    }
+
+    .key-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .key-input-row input {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      background-color: #1a73e8;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #1557b0;
+    }
+
+    .btn-secondary {
+      background-color: #fff;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+
+    .btn-small {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .success {
+      color: #34a853;
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .error {
+      color: #ea4335;
+      font-size: 13px;
+      margin-top: 8px;
+      display: none;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+
+    .radio-option input {
+      width: auto;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <h3>AI Settings</h3>
+
+  <div class="section">
+    <label>AI Provider</label>
+    <p>Select which AI model to use for resume analysis and tailoring.</p>
+    <div id="provider-list"></div>
+  </div>
+
+  <div class="section">
+    <label>API Keys</label>
+    <p>Enter your API keys. You only need a key for the provider you're using.</p>
+    <div id="api-keys"></div>
+  </div>
+
+  <p id="success" class="success"></p>
+  <p id="error" class="error"></p>
+
+  <div class="actions">
+    <button class="btn btn-secondary" onclick="google.script.host.close()">Close</button>
+  </div>
+
+  <script>
+    let settings = null;
+
+    // Load settings on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSettings();
+    });
+
+    function loadSettings() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          settings = result;
+          renderProviders();
+          renderApiKeys();
+        })
+        .withFailureHandler(function(err) {
+          showError('Failed to load settings: ' + err.message);
+        })
+        .getAISettings();
+    }
+
+    function renderProviders() {
+      const container = document.getElementById('provider-list');
+      container.innerHTML = '';
+
+      settings.providers.forEach(provider => {
+        const isSelected = provider.id === settings.currentProvider;
+        const div = document.createElement('div');
+        div.className = 'radio-option';
+        div.innerHTML = `
+          <input type="radio" name="provider" id="provider-${provider.id}"
+                 value="${provider.id}" ${isSelected ? 'checked' : ''}
+                 onchange="selectProvider('${provider.id}')">
+          <label for="provider-${provider.id}" style="margin: 0; cursor: pointer;">
+            ${provider.name}
+            ${provider.hasKey ? '<span style="color: #34a853; font-size: 12px;">(configured)</span>' : ''}
+          </label>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function renderApiKeys() {
+      const container = document.getElementById('api-keys');
+      container.innerHTML = '';
+
+      const providerLinks = {
+        claude: 'https://console.anthropic.com/settings/keys',
+        openai: 'https://platform.openai.com/api-keys',
+        gemini: 'https://aistudio.google.com/app/apikey'
+      };
+
+      const keyPrefixes = {
+        claude: 'sk-ant-',
+        openai: 'sk-',
+        gemini: ''
+      };
+
+      settings.providers.forEach(provider => {
+        const card = document.createElement('div');
+        card.className = 'provider-card' + (provider.id === settings.currentProvider ? ' selected' : '');
+        card.innerHTML = `
+          <div class="provider-header">
+            <span class="provider-name">${provider.name}</span>
+            <span class="provider-status ${provider.hasKey ? 'configured' : 'not-configured'}">
+              ${provider.hasKey ? 'Configured' : 'Not set'}
+            </span>
+          </div>
+          <div class="key-input-row">
+            <input type="password" id="key-${provider.id}"
+                   placeholder="${provider.hasKey ? '••••••••••••••••' : 'Enter API key...'}"
+                   data-provider="${provider.id}">
+            <button class="btn btn-primary btn-small" onclick="saveKey('${provider.id}')">Save</button>
+          </div>
+          <a href="${providerLinks[provider.id]}" target="_blank" class="api-link">
+            Get API key from ${provider.name.split(' ')[0]}
+          </a>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function selectProvider(providerId) {
+      hideMessages();
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            settings.currentProvider = providerId;
+            renderApiKeys(); // Re-render to update selected state
+            showSuccess('AI provider changed to ' + getProviderName(providerId));
+          }
+        })
+        .withFailureHandler(function(err) {
+          showError('Failed to change provider: ' + err.message);
+        })
+        .setAIProvider(providerId);
+    }
+
+    function saveKey(providerId) {
+      const input = document.getElementById('key-' + providerId);
+      const apiKey = input.value.trim();
+
+      if (!apiKey) {
+        showError('Please enter an API key.');
+        return;
+      }
+
+      // Basic validation
+      if (providerId === 'claude' && !apiKey.startsWith('sk-ant-')) {
+        showError('Claude API keys should start with "sk-ant-"');
+        return;
+      }
+      if (providerId === 'openai' && !apiKey.startsWith('sk-')) {
+        showError('OpenAI API keys should start with "sk-"');
+        return;
+      }
+
+      hideMessages();
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Update local state
+            const provider = settings.providers.find(p => p.id === providerId);
+            if (provider) provider.hasKey = true;
+            renderProviders();
+            renderApiKeys();
+            input.value = '';
+            showSuccess(result.message);
+          }
+        })
+        .withFailureHandler(function(err) {
+          showError('Failed to save: ' + err.message);
+        })
+        .saveProviderApiKey(providerId, apiKey);
+    }
+
+    function getProviderName(id) {
+      const provider = settings.providers.find(p => p.id === id);
+      return provider ? provider.name : id;
+    }
+
+    function showSuccess(msg) {
+      document.getElementById('success').textContent = msg;
+      document.getElementById('success').style.display = 'block';
+      document.getElementById('error').style.display = 'none';
+    }
+
+    function showError(msg) {
+      document.getElementById('error').textContent = msg;
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('success').style.display = 'none';
+    }
+
+    function hideMessages() {
+      document.getElementById('success').style.display = 'none';
+      document.getElementById('error').style.display = 'none';
+    }
+  </script>
+</body>
+</html>
