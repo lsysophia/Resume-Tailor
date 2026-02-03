@@ -544,6 +544,7 @@
     let candidateName = '';
     let currentCopyId = null;
     let currentChanges = [];
+    let currentRemovals = [];
     let templateCheckInterval = null;
 
     // Initialize - check template status and load settings
@@ -894,6 +895,47 @@
         changesList.innerHTML = '<p style="color: #5f6368;">No text changes suggested.</p>';
       }
 
+      // Content removal suggestions section
+      if (tailoring.contentToRemove && tailoring.contentToRemove.length > 0) {
+        currentRemovals = tailoring.contentToRemove;
+
+        const removalSection = document.createElement('div');
+        removalSection.style.cssText = 'margin-top: 20px; padding-top: 16px; border-top: 1px solid #e0e0e0;';
+        removalSection.innerHTML = `
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; color: #c5221f;">
+            Consider Removing
+          </h4>
+          <p style="font-size: 12px; color: #5f6368; margin: 0 0 12px 0;">
+            This content may not be relevant to the target role:
+          </p>
+        `;
+
+        const removalList = document.createElement('div');
+        removalList.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+
+        tailoring.contentToRemove.forEach((item, index) => {
+          const removalCard = document.createElement('div');
+          removalCard.className = 'removal-suggestion';
+          removalCard.id = 'removal-' + index;
+          removalCard.style.cssText = 'background: #fce8e6; padding: 10px 12px; border-radius: 8px; font-size: 13px;';
+          removalCard.innerHTML = `
+            <div class="change-section" style="margin-bottom: 4px;">${escapeHtml(item.section)}</div>
+            <div style="color: #c5221f; text-decoration: line-through; margin-bottom: 6px;">${escapeHtml(item.content)}</div>
+            <div style="color: #5f6368; font-size: 11px; font-style: italic; margin-bottom: 8px;">${escapeHtml(item.reason)}</div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; background: #c5221f; color: white; border: none;"
+                      onclick="acceptRemoval(${index}, this)">Remove</button>
+              <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;"
+                      onclick="rejectRemoval(${index}, this)">Keep</button>
+            </div>
+          `;
+          removalList.appendChild(removalCard);
+        });
+
+        removalSection.appendChild(removalList);
+        changesList.appendChild(removalSection);
+      }
+
       // Skills to add section
       if (tailoring.skillsToAdd && tailoring.skillsToAdd.length > 0) {
         const skillsSection = document.createElement('div');
@@ -955,6 +997,7 @@
       btn.textContent = 'Adding...';
       const card = btn.closest('.skill-suggestion');
 
+      // Add to the tailored copy, not the template
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
@@ -968,6 +1011,7 @@
           } else {
             btn.textContent = 'Failed';
             btn.style.background = '#fce8e6';
+            btn.title = result.error || 'Failed to add';
             setTimeout(() => {
               btn.textContent = '+ Add';
               btn.style.background = '';
@@ -982,7 +1026,7 @@
             btn.disabled = false;
           }, 2000);
         })
-        .addSkillToTemplate(skill);
+        .addSkillToCopy(skill, currentCopyId);
     }
 
     function escapeHtml(text) {
@@ -1103,6 +1147,82 @@
         .rejectSuggestedChange(currentCopyId, change.original, change.tailored);
     }
 
+    function acceptRemoval(index, btn) {
+      const removal = currentRemovals[index];
+      if (!removal || !currentCopyId) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Removing...';
+      const card = document.getElementById('removal-' + index);
+      const keepBtn = card.querySelector('.btn-secondary:not([style*="background: #c5221f"])');
+      if (keepBtn) keepBtn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            card.style.background = '#e8eaed';
+            card.style.opacity = '0.5';
+            btn.textContent = 'Removed';
+            btn.disabled = true;
+            if (keepBtn) keepBtn.style.display = 'none';
+          } else {
+            btn.textContent = 'Failed';
+            setTimeout(() => {
+              btn.textContent = 'Remove';
+              btn.disabled = false;
+              if (keepBtn) keepBtn.disabled = false;
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = 'Error';
+          setTimeout(() => {
+            btn.textContent = 'Remove';
+            btn.disabled = false;
+            if (keepBtn) keepBtn.disabled = false;
+          }, 2000);
+        })
+        .acceptRemoval(currentCopyId, removal.content);
+    }
+
+    function rejectRemoval(index, btn) {
+      const removal = currentRemovals[index];
+      if (!removal || !currentCopyId) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Keeping...';
+      const card = document.getElementById('removal-' + index);
+      const removeBtn = card.querySelector('[style*="background: #c5221f"]');
+      if (removeBtn) removeBtn.disabled = true;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            card.style.background = '#e6f4ea';
+            card.style.opacity = '0.7';
+            btn.textContent = 'Kept';
+            btn.disabled = true;
+            if (removeBtn) removeBtn.style.display = 'none';
+          } else {
+            btn.textContent = 'Failed';
+            setTimeout(() => {
+              btn.textContent = 'Keep';
+              btn.disabled = false;
+              if (removeBtn) removeBtn.disabled = false;
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = 'Error';
+          setTimeout(() => {
+            btn.textContent = 'Keep';
+            btn.disabled = false;
+            if (removeBtn) removeBtn.disabled = false;
+          }, 2000);
+        })
+        .rejectRemoval(currentCopyId, removal.content);
+    }
+
     function acceptAllChanges() {
       if (!currentChanges.length || !currentCopyId) return;
 
@@ -1203,6 +1323,7 @@
       candidateName = '';
       currentCopyId = null;
       currentChanges = [];
+      currentRemovals = [];
       hideError();
       checkTemplateStatus();
     }

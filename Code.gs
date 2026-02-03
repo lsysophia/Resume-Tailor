@@ -424,6 +424,7 @@ function extractTableContent(table) {
 
 /**
  * Adds a skill/keyword to the template resume's Skills section.
+ * Used from the analysis screen to improve the master resume.
  * Uses AI to determine the correct category/subcategory for placement.
  *
  * @param {string} skill - The skill to add
@@ -445,6 +446,41 @@ function addSkillToTemplate(skill) {
     }
   } catch (error) {
     console.error('Error adding skill:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Adds a skill/keyword to a specific tailored copy's Skills section.
+ * Used from the tailoring results screen to add job-specific skills to the copy only.
+ * Uses AI to determine the correct category/subcategory for placement.
+ *
+ * @param {string} skill - The skill to add
+ * @param {string} copyId - The document ID of the tailored copy
+ * @returns {Object} Result with success status
+ */
+function addSkillToCopy(skill, copyId) {
+  try {
+    if (!copyId) {
+      return { success: false, error: 'No document ID provided.' };
+    }
+
+    // Verify the document exists
+    try {
+      DocumentApp.openById(copyId);
+    } catch (e) {
+      return { success: false, error: 'Could not access the tailored copy.' };
+    }
+
+    // Check if AI is configured - if so, use intelligent placement
+    if (hasApiKey()) {
+      return addSkillWithAIPlacement(skill, copyId);
+    } else {
+      // Fallback to simple placement if no AI configured
+      return addSkillSimple(skill, copyId);
+    }
+  } catch (error) {
+    console.error('Error adding skill to copy:', error);
     return { success: false, error: error.message };
   }
 }
@@ -1347,6 +1383,127 @@ function rejectSuggestedChange(docId, originalText, newText) {
 
   } catch (error) {
     console.error('Error rejecting suggestion:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Marks content for removal visually (red strikethrough).
+ * @param {string} docId - The document ID
+ * @param {string} content - The text to mark for removal
+ * @param {string} reason - Why this should be removed
+ * @returns {Object} Result
+ */
+function markContentForRemoval(docId, content) {
+  try {
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+
+    const searchPattern = escapeRegex(content);
+    const found = body.findText(searchPattern);
+
+    if (found) {
+      const element = found.getElement();
+      const start = found.getStartOffset();
+      const end = found.getEndOffsetInclusive();
+
+      // Apply red strikethrough to indicate removal suggestion
+      const text = element.editAsText();
+      text.setStrikethrough(start, end, true);
+      text.setForegroundColor(start, end, '#ea4335'); // Red color
+
+      doc.saveAndClose();
+      return { success: true, message: 'Content marked for removal' };
+    }
+
+    doc.saveAndClose();
+    return { success: false, message: 'Could not find content to mark for removal.' };
+
+  } catch (error) {
+    console.error('Error marking content for removal:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Accepts a removal suggestion (deletes the content).
+ * @param {string} docId - The document ID
+ * @param {string} content - The text to remove
+ * @returns {Object} Result
+ */
+function acceptRemoval(docId, content) {
+  try {
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+
+    const searchPattern = escapeRegex(content);
+    const found = body.findText(searchPattern);
+
+    if (found) {
+      const element = found.getElement();
+      const start = found.getStartOffset();
+      const end = found.getEndOffsetInclusive();
+      const parent = element.getParent();
+
+      // Check if this is the entire content of a paragraph/list item
+      const parentText = parent.asText ? parent.asText().getText() : '';
+      const trimmedParent = parentText.trim();
+      const trimmedContent = content.trim();
+
+      if (trimmedParent === trimmedContent || trimmedParent === content) {
+        // Remove the entire element (paragraph or list item)
+        parent.removeFromParent();
+      } else {
+        // Just delete the text portion
+        element.editAsText().deleteText(start, end);
+      }
+
+      doc.saveAndClose();
+      return { success: true, message: 'Content removed' };
+    }
+
+    doc.saveAndClose();
+    return { success: false, message: 'Could not find content to remove.' };
+
+  } catch (error) {
+    console.error('Error accepting removal:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Rejects a removal suggestion (keeps content, removes strikethrough formatting).
+ * @param {string} docId - The document ID
+ * @param {string} content - The text to keep
+ * @returns {Object} Result
+ */
+function rejectRemoval(docId, content) {
+  try {
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+
+    const searchPattern = escapeRegex(content);
+    const found = body.findText(searchPattern);
+
+    if (found) {
+      const element = found.getElement();
+      const start = found.getStartOffset();
+      const end = found.getEndOffsetInclusive();
+
+      // Remove strikethrough and reset color
+      const text = element.editAsText();
+      text.setStrikethrough(start, end, false);
+      text.setForegroundColor(start, end, null); // Reset to default
+
+      doc.saveAndClose();
+      return { success: true, message: 'Content kept' };
+    }
+
+    doc.saveAndClose();
+    return { success: false, message: 'Could not find content to restore.' };
+
+  } catch (error) {
+    console.error('Error rejecting removal:', error);
     return { success: false, message: error.message };
   }
 }

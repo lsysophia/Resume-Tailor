@@ -579,6 +579,13 @@ Provide tailored content as JSON with this structure:
       "reason": "<why this change helps>"
     }
   ],
+  "contentToRemove": [
+    {
+      "section": "<section name>",
+      "content": "<exact text to remove>",
+      "reason": "<why removing this helps - be specific about irrelevance to the target role>"
+    }
+  ],
   "skillsToAdd": [
     {
       "skill": "<skill/keyword to add>",
@@ -600,6 +607,14 @@ IMPORTANT for skillsToAdd:
 - Look for related technologies: ChatGPT implies LLM/AI, "deployed to AWS" implies AWS, etc.
 - Check if skills mentioned in experience are missing from the Skills section
 - Match category names to the resume's existing skill categories if possible
+
+IMPORTANT for contentToRemove:
+- Suggest removing bullet points or content that is NOT relevant to the target role
+- Focus on experience bullets that don't align with the job requirements
+- Be conservative - only suggest removal if the content is clearly irrelevant
+- Do NOT suggest removing contact info, education dates, or company names
+- Provide clear reasoning so the user understands why removal is suggested
+- Examples: A retail job bullet for a software engineering role, an unrelated certification, skills not relevant to this position
 
 Only include changes where rephrasing genuinely improves the match. Quality over quantity.`;
 
