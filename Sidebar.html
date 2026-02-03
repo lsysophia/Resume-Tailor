@@ -981,18 +981,18 @@
           skillCard.id = 'skill-suggestion-' + index;
           skillCard.style.cssText = 'background: #fef7e0; padding: 10px 12px; border-radius: 8px; font-size: 13px;';
           skillCard.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
-              <div style="flex: 1;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px;">
+              <div>
                 <strong style="color: #b05a00;">${escapeHtml(item.skill)}</strong>
                 <span style="color: #5f6368; font-size: 11px;"> → ${escapeHtml(item.category)}</span>
-                <div style="color: #5f6368; font-size: 11px; margin-top: 4px;">
-                  ${escapeHtml(item.justification)}
-                </div>
               </div>
-              <button class="btn btn-success" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;"
+              <button class="btn btn-success" style="padding: 4px 10px; font-size: 11px; white-space: nowrap;"
                       onclick="addSuggestedSkill('${escapeHtml(item.skill).replace(/'/g, "\\'")}', this)">
                 + Add
               </button>
+            </div>
+            <div style="color: #5f6368; font-size: 11px;">
+              ${escapeHtml(item.justification)}
             </div>
           `;
           skillsList.appendChild(skillCard);
