@@ -417,7 +417,7 @@
   </div>
 
   <!-- Match Threshold Slider -->
-  <div class="settings-section" style="margin-bottom: 16px;">
+  <div id="threshold-section" class="settings-section" style="margin-bottom: 16px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
       <label style="font-size: 12px; color: #5f6368;">Min match to tailor:</label>
       <span id="threshold-value" style="font-size: 12px; font-weight: 500; color: #1a73e8;">80%</span>
@@ -512,6 +512,12 @@
   <div id="tailoring-results" class="tailoring-results">
     <h3>Tailored Resume Created</h3>
 
+    <!-- Match Score Display (from analysis) -->
+    <div id="tailoring-match-score" class="score-container" style="padding: 12px; margin-bottom: 12px;">
+      <div id="tailoring-score" class="score" style="font-size: 36px;">--</div>
+      <div class="score-label">Match Score</div>
+    </div>
+
     <div id="copy-info" class="copy-info">
       <div style="margin-bottom: 8px;">Your tailored resume is open in a new tab:</div>
       <a id="copy-link" href="#" target="_blank">Open Tailored Resume</a>
@@ -576,6 +582,7 @@
       // Hide other sections
       document.getElementById('input-section').style.display = 'none';
       document.getElementById('results').classList.remove('show');
+      document.getElementById('threshold-section').style.display = 'none';
 
       // Update copy info
       const copyInfo = document.getElementById('copy-info');
@@ -860,6 +867,22 @@
     }
 
     function displayTailoringResults(tailoring, applyResult) {
+      // Hide the threshold slider
+      document.getElementById('threshold-section').style.display = 'none';
+
+      // Show the match score from analysis
+      if (currentAnalysis && currentAnalysis.matchScore !== undefined) {
+        const scoreEl = document.getElementById('tailoring-score');
+        scoreEl.textContent = currentAnalysis.matchScore + '%';
+        scoreEl.className = 'score ' + (
+          currentAnalysis.matchScore >= 80 ? 'high' :
+          currentAnalysis.matchScore >= 60 ? 'medium' : 'low'
+        );
+        document.getElementById('tailoring-match-score').style.display = 'block';
+      } else {
+        document.getElementById('tailoring-match-score').style.display = 'none';
+      }
+
       const changesList = document.getElementById('changes-list');
       changesList.innerHTML = '';
 
@@ -1318,6 +1341,8 @@
       document.getElementById('results').classList.remove('show');
       document.getElementById('tailoring-results').classList.remove('show');
       document.getElementById('input-section').style.display = 'block';
+      // Show the threshold slider again
+      document.getElementById('threshold-section').style.display = 'block';
       currentAnalysis = null;  // Contains companyName and positionTitle from Claude
       jobDescription = '';
       candidateName = '';

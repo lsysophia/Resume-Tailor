@@ -615,6 +615,7 @@ IMPORTANT for contentToRemove:
 - Do NOT suggest removing contact info, education dates, or company names
 - Provide clear reasoning so the user understands why removal is suggested
 - Examples: A retail job bullet for a software engineering role, an unrelated certification, skills not relevant to this position
+- CRITICAL: The "content" field must be copied EXACTLY from the resume - character for character, including all punctuation. Do not paraphrase or summarize.
 
 Only include changes where rephrasing genuinely improves the match. Quality over quantity.`;
 

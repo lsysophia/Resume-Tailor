@@ -1436,7 +1436,9 @@ function acceptRemoval(docId, content) {
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
 
-    const searchPattern = escapeRegex(content);
+    // Normalize the search content (trim whitespace)
+    const normalizedContent = content.trim();
+    const searchPattern = escapeRegex(normalizedContent);
     const found = body.findText(searchPattern);
 
     if (found) {
@@ -1445,12 +1447,19 @@ function acceptRemoval(docId, content) {
       const end = found.getEndOffsetInclusive();
       const parent = element.getParent();
 
-      // Check if this is the entire content of a paragraph/list item
-      const parentText = parent.asText ? parent.asText().getText() : '';
-      const trimmedParent = parentText.trim();
-      const trimmedContent = content.trim();
+      // Get the parent text using the correct method
+      let parentText = '';
+      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+        parentText = parent.getText();
+      } else if (element.getText) {
+        parentText = element.getText();
+      }
 
-      if (trimmedParent === trimmedContent || trimmedParent === content) {
+      const trimmedParent = parentText.trim();
+
+      // Check if this is the entire content of a paragraph/list item
+      if (trimmedParent === normalizedContent) {
         // Remove the entire element (paragraph or list item)
         parent.removeFromParent();
       } else {
@@ -1462,8 +1471,50 @@ function acceptRemoval(docId, content) {
       return { success: true, message: 'Content removed' };
     }
 
+    // Try a more lenient search if exact match failed (in case of whitespace issues)
+    const paragraphs = body.getParagraphs();
+    for (let i = 0; i < paragraphs.length; i++) {
+      const para = paragraphs[i];
+      const paraText = para.getText().trim();
+      if (paraText === normalizedContent || paraText.includes(normalizedContent)) {
+        if (paraText === normalizedContent) {
+          // Remove entire paragraph if it's an exact match
+          para.removeFromParent();
+        } else {
+          // Replace the content with empty string
+          const text = para.editAsText();
+          const idx = paraText.indexOf(normalizedContent);
+          if (idx >= 0) {
+            text.deleteText(idx, idx + normalizedContent.length - 1);
+          }
+        }
+        doc.saveAndClose();
+        return { success: true, message: 'Content removed' };
+      }
+    }
+
+    // Also check list items
+    const lists = body.getListItems();
+    for (let i = 0; i < lists.length; i++) {
+      const listItem = lists[i];
+      const itemText = listItem.getText().trim();
+      if (itemText === normalizedContent || itemText.includes(normalizedContent)) {
+        if (itemText === normalizedContent) {
+          listItem.removeFromParent();
+        } else {
+          const text = listItem.editAsText();
+          const idx = itemText.indexOf(normalizedContent);
+          if (idx >= 0) {
+            text.deleteText(idx, idx + normalizedContent.length - 1);
+          }
+        }
+        doc.saveAndClose();
+        return { success: true, message: 'Content removed' };
+      }
+    }
+
     doc.saveAndClose();
-    return { success: false, message: 'Could not find content to remove.' };
+    return { success: false, message: 'Could not find content to remove. The text may have been modified.' };
 
   } catch (error) {
     console.error('Error accepting removal:', error);
@@ -1482,7 +1533,9 @@ function rejectRemoval(docId, content) {
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
 
-    const searchPattern = escapeRegex(content);
+    // Normalize the search content
+    const normalizedContent = content.trim();
+    const searchPattern = escapeRegex(normalizedContent);
     const found = body.findText(searchPattern);
 
     if (found) {
@@ -1497,6 +1550,39 @@ function rejectRemoval(docId, content) {
 
       doc.saveAndClose();
       return { success: true, message: 'Content kept' };
+    }
+
+    // Try fallback search in paragraphs and list items
+    const paragraphs = body.getParagraphs();
+    for (let i = 0; i < paragraphs.length; i++) {
+      const para = paragraphs[i];
+      const paraText = para.getText();
+      if (paraText.includes(normalizedContent)) {
+        const text = para.editAsText();
+        const idx = paraText.indexOf(normalizedContent);
+        if (idx >= 0) {
+          text.setStrikethrough(idx, idx + normalizedContent.length - 1, false);
+          text.setForegroundColor(idx, idx + normalizedContent.length - 1, null);
+        }
+        doc.saveAndClose();
+        return { success: true, message: 'Content kept' };
+      }
+    }
+
+    const lists = body.getListItems();
+    for (let i = 0; i < lists.length; i++) {
+      const listItem = lists[i];
+      const itemText = listItem.getText();
+      if (itemText.includes(normalizedContent)) {
+        const text = listItem.editAsText();
+        const idx = itemText.indexOf(normalizedContent);
+        if (idx >= 0) {
+          text.setStrikethrough(idx, idx + normalizedContent.length - 1, false);
+          text.setForegroundColor(idx, idx + normalizedContent.length - 1, null);
+        }
+        doc.saveAndClose();
+        return { success: true, message: 'Content kept' };
+      }
     }
 
     doc.saveAndClose();
