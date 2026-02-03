@@ -462,18 +462,12 @@ function analyzeResumeMatch(resumeData, jobDescription) {
 
 Be honest and accurate in your assessment. Do not inflate scores to make the candidate feel good.
 
-CRITICAL: When analyzing skills, you must:
-1. Look at BOTH explicit skill listings AND infer skills from experience descriptions
-2. If someone describes "building AI-powered features" or "integrating ChatGPT", they have AI/LLM skills
-3. If someone "developed REST APIs", they have API development skills
-4. If someone "deployed to AWS", they have cloud/AWS skills
-5. Technologies mentioned in project descriptions count as skills the candidate has
-6. Don't mark a skill as "missing" if the candidate demonstrates it through their work experience
+CRITICAL: When analyzing skills, you must distinguish between:
+1. Skills explicitly listed in the Skills section
+2. Skills demonstrated through experience but NOT in Skills section (implicit skills)
+3. Skills truly missing (not demonstrated anywhere)
 
-For "keywordsMissing", only include skills/technologies that:
-- Are required or strongly preferred in the job description
-- Are NOT demonstrated anywhere in the resume (neither in skills section NOR in experience)
-- Would genuinely strengthen the candidate's application if added
+For scoring, give credit for both explicit AND implicit skills.
 
 You must respond with valid JSON only, no other text.`;
 
@@ -493,11 +487,23 @@ Provide your analysis as JSON with this exact structure:
   "positionTitle": "<job title/position from job posting>",
   "strengths": ["<strength 1>", "<strength 2>", ...],
   "gaps": ["<gap 1>", "<gap 2>", ...],
-  "keywordsMatched": ["<keyword 1>", "<keyword 2>", ...],
-  "keywordsMissing": ["<keyword 1>", "<keyword 2>", ...],
+  "keywordsMatched": ["<keywords explicitly in Skills section>", ...],
+  "keywordsToAddToSkills": ["<keywords demonstrated in experience but NOT in Skills section - e.g., if they used PostgreSQL in a job but it's not listed as a skill>", ...],
+  "keywordsMissing": ["<keywords truly not demonstrated anywhere in resume>", ...],
   "skillsInferredFromExperience": ["<skill inferred from work descriptions>", ...],
   "recommendation": "<should they apply? honest advice>"
-}`;
+}
+
+IMPORTANT distinctions:
+- keywordsMatched: Skills from job description that ARE in the candidate's Skills section
+- keywordsToAddToSkills: Skills from job description that the candidate HAS (mentioned in experience/projects) but NOT listed in Skills section. Examples: "ChatGPT" in experience means add "LLM", "AI"; "PostgreSQL" in experience means add "PostgreSQL" to skills
+- keywordsMissing: Skills from job description the candidate does NOT demonstrate anywhere
+
+CRITICAL - NO DUPLICATES:
+- Each skill should appear in ONLY ONE of the three keyword lists
+- Treat variations as the same skill: "PostgreSQL" = "Postgres", "JavaScript" = "JS", "Machine Learning" = "ML"
+- If a skill is in keywordsToAddToSkills, do NOT also put it in keywordsMissing
+- If unsure where a skill belongs, prefer keywordsToAddToSkills over keywordsMissing`;
 
   const response = callAI(systemPrompt, userMessage);
 

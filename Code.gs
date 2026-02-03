@@ -468,11 +468,12 @@ function addSkillWithAIPlacement(skill, docId) {
     const body = doc.getBody();
     const numChildren = body.getNumChildren();
 
-    // First, check if skill already exists anywhere in the document
-    const allText = body.getText().toLowerCase();
-    if (allText.includes(skill.toLowerCase())) {
+    // Check if skill already exists in the Skills section (not the whole document)
+    // We want to allow adding skills that are mentioned in experience but not in Skills
+    const skillsText = getSkillsSectionText(body);
+    if (skillsText && skillsText.toLowerCase().includes(skill.toLowerCase())) {
       doc.saveAndClose();
-      return { success: false, error: 'This skill is already in your resume.' };
+      return { success: false, error: 'This skill is already in your Skills section.' };
     }
 
     // Find the target category in the document
@@ -664,6 +665,66 @@ function normalizeForComparison(text) {
 }
 
 /**
+ * Extracts text from just the Skills section of a document.
+ * Used to check for duplicates only within Skills, not the whole document.
+ * @param {Body} body - The document body
+ * @returns {string} Text content of the Skills section, or empty string if not found
+ */
+function getSkillsSectionText(body) {
+  const skillsSectionNames = ['SKILLS', 'TECHNICAL SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES'];
+  const numChildren = body.getNumChildren();
+  let inSkillsSection = false;
+  let skillsText = '';
+
+  for (let i = 0; i < numChildren; i++) {
+    const element = body.getChild(i);
+    const elementType = element.getType();
+
+    if (elementType === DocumentApp.ElementType.PARAGRAPH) {
+      const para = element.asParagraph();
+      const text = para.getText().trim();
+      const upperText = text.toUpperCase();
+
+      // Check if this is a Skills section header
+      if (skillsSectionNames.some(name => upperText.includes(name))) {
+        inSkillsSection = true;
+        skillsText += text + '\n';
+        continue;
+      }
+
+      // Check if we've hit a new section (end of Skills)
+      if (inSkillsSection && text && (
+        para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+        (text === text.toUpperCase() && text.length > 3 && !text.includes(':')) ||
+        isSectionHeader(text)
+      )) {
+        break; // End of skills section
+      }
+
+      // Collect skills content
+      if (inSkillsSection && text) {
+        skillsText += text + '\n';
+      }
+    } else if (inSkillsSection) {
+      // Also collect text from list items and tables in skills section
+      if (elementType === DocumentApp.ElementType.LIST_ITEM) {
+        skillsText += element.asListItem().getText() + '\n';
+      } else if (elementType === DocumentApp.ElementType.TABLE) {
+        const table = element.asTable();
+        for (let r = 0; r < table.getNumRows(); r++) {
+          const row = table.getRow(r);
+          for (let c = 0; c < row.getNumCells(); c++) {
+            skillsText += row.getCell(c).getText() + '\n';
+          }
+        }
+      }
+    }
+  }
+
+  return skillsText;
+}
+
+/**
  * Simple skill addition without AI - fallback method.
  * Adds skill to the first skills-related section found.
  *
@@ -675,6 +736,13 @@ function addSkillSimple(skill, docId) {
   try {
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
+
+    // Check if skill already exists in the Skills section
+    const skillsText = getSkillsSectionText(body);
+    if (skillsText && skillsText.toLowerCase().includes(skill.toLowerCase())) {
+      doc.saveAndClose();
+      return { success: false, error: 'This skill is already in your Skills section.' };
+    }
 
     const skillsSectionNames = ['SKILLS', 'TECHNICAL SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES'];
     let skillsSectionIndex = -1;
@@ -713,10 +781,6 @@ function addSkillSimple(skill, docId) {
 
         if (text && text.length > 10) {
           const currentText = para.getText();
-          if (currentText.toLowerCase().includes(skill.toLowerCase())) {
-            doc.saveAndClose();
-            return { success: false, error: 'This skill is already in your resume.' };
-          }
 
           let separator = ', ';
           if (currentText.includes(' | ')) separator = ' | ';
@@ -731,12 +795,6 @@ function addSkillSimple(skill, docId) {
 
       if (elementType === DocumentApp.ElementType.LIST_ITEM) {
         const listItem = element.asListItem();
-        const text = listItem.getText().trim();
-
-        if (text.toLowerCase().includes(skill.toLowerCase())) {
-          doc.saveAndClose();
-          return { success: false, error: 'This skill is already in your resume.' };
-        }
 
         const newItem = body.insertListItem(i + 1, skill);
         newItem.setGlyphType(listItem.getGlyphType());

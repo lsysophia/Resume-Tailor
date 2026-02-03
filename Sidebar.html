@@ -288,6 +288,11 @@
       display: none;
     }
 
+    .chip.info {
+      background: #e8f0fe;
+      color: #174ea6;
+    }
+
     .error {
       background: #fce8e6;
       color: #c5221f;
@@ -474,6 +479,12 @@
     <div class="list-section">
       <h4>Keywords Matched</h4>
       <div id="keywords-matched" class="chip-list"></div>
+    </div>
+
+    <div class="list-section" id="keywords-to-add-section" style="display: none;">
+      <h4>Add to Skills Section</h4>
+      <p style="font-size: 11px; color: #5f6368; margin: 0 0 8px 0;">You have experience with these but they're not in your Skills section:</p>
+      <div id="keywords-to-add" class="chip-list"></div>
     </div>
 
     <div class="list-section">
@@ -746,7 +757,23 @@
       document.getElementById('keywords-matched').innerHTML =
         (analysis.keywordsMatched || []).map(k => `<span class="chip success">${escapeHtml(k)}</span>`).join('');
 
-      // Missing keywords with "Add" option
+      // Keywords to add to Skills section (has experience, but not listed as skill)
+      const keywordsToAdd = analysis.keywordsToAddToSkills || [];
+      const toAddSection = document.getElementById('keywords-to-add-section');
+      if (keywordsToAdd.length > 0) {
+        toAddSection.style.display = 'block';
+        document.getElementById('keywords-to-add').innerHTML =
+          keywordsToAdd.map(k => `
+            <span class="chip info addable" data-keyword="${escapeHtml(k)}">
+              ${escapeHtml(k)}
+              <button class="chip-add-btn" onclick="addSkillToResume('${escapeHtml(k).replace(/'/g, "\\'")}', this)" title="Add to Skills section">+</button>
+            </span>
+          `).join('');
+      } else {
+        toAddSection.style.display = 'none';
+      }
+
+      // Missing keywords (truly not demonstrated) with "Add" option
       document.getElementById('keywords-missing').innerHTML =
         (analysis.keywordsMissing || []).map(k => `
           <span class="chip warning addable" data-keyword="${escapeHtml(k)}">
@@ -864,7 +891,50 @@
           changesList.appendChild(card);
         });
       } else {
-        changesList.innerHTML = '<p style="color: #5f6368;">No changes suggested. Your resume is already well-aligned!</p>';
+        changesList.innerHTML = '<p style="color: #5f6368;">No text changes suggested.</p>';
+      }
+
+      // Skills to add section
+      if (tailoring.skillsToAdd && tailoring.skillsToAdd.length > 0) {
+        const skillsSection = document.createElement('div');
+        skillsSection.style.cssText = 'margin-top: 20px; padding-top: 16px; border-top: 1px solid #e0e0e0;';
+        skillsSection.innerHTML = `
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 500; color: #202124;">
+            Suggested Skills to Add
+          </h4>
+          <p style="font-size: 12px; color: #5f6368; margin: 0 0 12px 0;">
+            These skills are implied by your experience but missing from your Skills section:
+          </p>
+        `;
+
+        const skillsList = document.createElement('div');
+        skillsList.style.cssText = 'display: flex; flex-direction: column; gap: 8px;';
+
+        tailoring.skillsToAdd.forEach((item, index) => {
+          const skillCard = document.createElement('div');
+          skillCard.className = 'skill-suggestion';
+          skillCard.id = 'skill-suggestion-' + index;
+          skillCard.style.cssText = 'background: #fef7e0; padding: 10px 12px; border-radius: 8px; font-size: 13px;';
+          skillCard.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+              <div style="flex: 1;">
+                <strong style="color: #b05a00;">${escapeHtml(item.skill)}</strong>
+                <span style="color: #5f6368; font-size: 11px;"> → ${escapeHtml(item.category)}</span>
+                <div style="color: #5f6368; font-size: 11px; margin-top: 4px;">
+                  ${escapeHtml(item.justification)}
+                </div>
+              </div>
+              <button class="btn btn-success" style="padding: 6px 12px; font-size: 12px; white-space: nowrap;"
+                      onclick="addSuggestedSkill('${escapeHtml(item.skill).replace(/'/g, "\\'")}', this)">
+                + Add
+              </button>
+            </div>
+          `;
+          skillsList.appendChild(skillCard);
+        });
+
+        skillsSection.appendChild(skillsList);
+        changesList.appendChild(skillsSection);
       }
 
       // Notes
@@ -878,6 +948,41 @@
 
       document.getElementById('results').classList.remove('show');
       document.getElementById('tailoring-results').classList.add('show');
+    }
+
+    function addSuggestedSkill(skill, btn) {
+      btn.disabled = true;
+      btn.textContent = 'Adding...';
+      const card = btn.closest('.skill-suggestion');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            card.style.background = '#e6f4ea';
+            card.querySelector('strong').style.color = '#137333';
+            btn.textContent = '✓ Added';
+            btn.disabled = true;
+            btn.style.background = '#e6f4ea';
+            btn.style.color = '#137333';
+            btn.style.border = '1px solid #137333';
+          } else {
+            btn.textContent = 'Failed';
+            btn.style.background = '#fce8e6';
+            setTimeout(() => {
+              btn.textContent = '+ Add';
+              btn.style.background = '';
+              btn.disabled = false;
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = 'Error';
+          setTimeout(() => {
+            btn.textContent = '+ Add';
+            btn.disabled = false;
+          }, 2000);
+        })
+        .addSkillToTemplate(skill);
     }
 
     function escapeHtml(text) {
