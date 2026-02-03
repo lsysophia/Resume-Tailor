@@ -250,6 +250,44 @@
       color: #b05a00;
     }
 
+    .chip.addable {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding-right: 4px;
+    }
+
+    .chip-add-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.1);
+      color: inherit;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      padding: 0;
+      line-height: 1;
+      transition: background-color 0.15s;
+    }
+
+    .chip-add-btn:hover {
+      background: rgba(0, 0, 0, 0.2);
+    }
+
+    .chip.added {
+      background: #e6f4ea;
+      color: #137333;
+    }
+
+    .chip.added .chip-add-btn {
+      display: none;
+    }
+
     .error {
       background: #fce8e6;
       color: #c5221f;
@@ -706,10 +744,16 @@
 
       // Keywords
       document.getElementById('keywords-matched').innerHTML =
-        (analysis.keywordsMatched || []).map(k => `<span class="chip success">${k}</span>`).join('');
+        (analysis.keywordsMatched || []).map(k => `<span class="chip success">${escapeHtml(k)}</span>`).join('');
 
+      // Missing keywords with "Add" option
       document.getElementById('keywords-missing').innerHTML =
-        (analysis.keywordsMissing || []).map(k => `<span class="chip warning">${k}</span>`).join('');
+        (analysis.keywordsMissing || []).map(k => `
+          <span class="chip warning addable" data-keyword="${escapeHtml(k)}">
+            ${escapeHtml(k)}
+            <button class="chip-add-btn" onclick="addSkillToResume('${escapeHtml(k).replace(/'/g, "\\'")}', this)" title="Add to your resume">+</button>
+          </span>
+        `).join('');
 
       // Recommendation
       document.getElementById('recommendation').textContent = analysis.recommendation;
@@ -840,6 +884,42 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
+    }
+
+    function addSkillToResume(skill, btn) {
+      // Disable button and show loading state
+      btn.disabled = true;
+      btn.textContent = '...';
+      const chip = btn.parentElement;
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Mark as added
+            chip.classList.remove('warning');
+            chip.classList.add('added');
+            chip.innerHTML = escapeHtml(skill) + ' <span style="font-size: 10px;">✓ Added</span>';
+          } else {
+            // Show error briefly, then restore
+            btn.textContent = '!';
+            btn.title = result.error || 'Failed to add';
+            setTimeout(() => {
+              btn.textContent = '+';
+              btn.disabled = false;
+              btn.title = 'Add to your resume';
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = '!';
+          btn.title = err.message || 'Error';
+          setTimeout(() => {
+            btn.textContent = '+';
+            btn.disabled = false;
+            btn.title = 'Add to your resume';
+          }, 2000);
+        })
+        .addSkillToTemplate(skill);
     }
 
     function acceptChange(index, btn) {

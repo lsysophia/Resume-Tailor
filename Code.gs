@@ -422,6 +422,348 @@ function extractTableContent(table) {
   return rows.join('\n');
 }
 
+/**
+ * Adds a skill/keyword to the template resume's Skills section.
+ * Uses AI to determine the correct category/subcategory for placement.
+ *
+ * @param {string} skill - The skill to add
+ * @returns {Object} Result with success status
+ */
+function addSkillToTemplate(skill) {
+  try {
+    const templateInfo = getTemplateInfo();
+    if (!templateInfo.hasTemplate) {
+      return { success: false, error: 'No template resume set.' };
+    }
+
+    // Check if AI is configured - if so, use intelligent placement
+    if (hasApiKey()) {
+      return addSkillWithAIPlacement(skill, templateInfo.templateId);
+    } else {
+      // Fallback to simple placement if no AI configured
+      return addSkillSimple(skill, templateInfo.templateId);
+    }
+  } catch (error) {
+    console.error('Error adding skill:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Adds a skill using AI to determine the correct category placement.
+ * @param {string} skill - The skill to add
+ * @param {string} docId - The document ID
+ * @returns {Object} Result with success status
+ */
+function addSkillWithAIPlacement(skill, docId) {
+  try {
+    // Get resume data for AI analysis
+    const resumeData = getResumeData(docId);
+
+    // Use AI to determine the best category for this skill
+    const categoryInfo = determineSkillCategory(skill, resumeData);
+    const targetCategory = categoryInfo.recommendedCategory;
+
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+    const numChildren = body.getNumChildren();
+
+    // First, check if skill already exists anywhere in the document
+    const allText = body.getText().toLowerCase();
+    if (allText.includes(skill.toLowerCase())) {
+      doc.saveAndClose();
+      return { success: false, error: 'This skill is already in your resume.' };
+    }
+
+    // Find the target category in the document
+    let targetIndex = -1;
+    let targetElement = null;
+
+    for (let i = 0; i < numChildren; i++) {
+      const element = body.getChild(i);
+      if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        const text = element.asParagraph().getText().trim();
+
+        // Check if this paragraph contains the target category name
+        // Match category names like "Programming Languages:", "Integration & Services:", etc.
+        if (text && (
+          text.toLowerCase().includes(targetCategory.toLowerCase()) ||
+          normalizeForComparison(text).includes(normalizeForComparison(targetCategory))
+        )) {
+          targetIndex = i;
+
+          // Check if this line already contains skills (category: skill1, skill2, ...)
+          if (text.includes(':')) {
+            targetElement = element.asParagraph();
+          }
+          break;
+        }
+      }
+    }
+
+    // If we found the exact category line with skills on it
+    if (targetElement) {
+      const para = targetElement;
+      const currentText = para.getText();
+
+      // Detect separator
+      let separator = ', ';
+      if (currentText.includes(' | ')) separator = ' | ';
+      else if (currentText.includes(' • ')) separator = ' • ';
+      else if (currentText.includes('; ')) separator = '; ';
+
+      // Append the skill
+      para.editAsText().appendText(separator + skill);
+      doc.saveAndClose();
+      return {
+        success: true,
+        message: `Added "${skill}" to ${targetCategory}.`,
+        category: targetCategory
+      };
+    }
+
+    // If we found the category header but skills are on the next line(s)
+    if (targetIndex !== -1) {
+      // Look at the next element(s) for the skills content
+      for (let i = targetIndex + 1; i < Math.min(targetIndex + 5, numChildren); i++) {
+        const element = body.getChild(i);
+        const elementType = element.getType();
+
+        // Stop if we hit another section/category header
+        if (elementType === DocumentApp.ElementType.PARAGRAPH) {
+          const para = element.asParagraph();
+          const text = para.getText().trim();
+
+          // Check if this is a new category or section header
+          if (text && (
+            para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+            text === text.toUpperCase() ||
+            isSectionHeader(text) ||
+            (text.includes(':') && text.split(':')[1].trim().length < 3)
+          )) {
+            break;
+          }
+
+          // This looks like a skills content line
+          if (text && text.length > 5) {
+            const currentText = para.getText();
+            let separator = ', ';
+            if (currentText.includes(' | ')) separator = ' | ';
+            else if (currentText.includes(' • ')) separator = ' • ';
+            else if (currentText.includes('; ')) separator = '; ';
+
+            para.editAsText().appendText(separator + skill);
+            doc.saveAndClose();
+            return {
+              success: true,
+              message: `Added "${skill}" to ${targetCategory}.`,
+              category: targetCategory
+            };
+          }
+        }
+
+        // Handle list items
+        if (elementType === DocumentApp.ElementType.LIST_ITEM) {
+          const listItem = element.asListItem();
+          const newItem = body.insertListItem(i + 1, skill);
+          newItem.setGlyphType(listItem.getGlyphType());
+          newItem.setNestingLevel(listItem.getNestingLevel());
+          doc.saveAndClose();
+          return {
+            success: true,
+            message: `Added "${skill}" to ${targetCategory}.`,
+            category: targetCategory
+          };
+        }
+
+        // Handle tables
+        if (elementType === DocumentApp.ElementType.TABLE) {
+          const result = addSkillToTable(element.asTable(), skill);
+          if (result.added) {
+            doc.saveAndClose();
+            return {
+              success: true,
+              message: `Added "${skill}" to ${targetCategory}.`,
+              category: targetCategory
+            };
+          }
+        }
+      }
+    }
+
+    // Fallback: try alternative categories from AI suggestion
+    if (categoryInfo.alternativeCategories && categoryInfo.alternativeCategories.length > 0) {
+      for (const altCategory of categoryInfo.alternativeCategories) {
+        for (let i = 0; i < numChildren; i++) {
+          const element = body.getChild(i);
+          if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
+            const text = element.asParagraph().getText().trim();
+            if (text && normalizeForComparison(text).includes(normalizeForComparison(altCategory))) {
+              // Found alternative category, add skill there
+              const para = element.asParagraph();
+              const currentText = para.getText();
+
+              if (currentText.includes(':') && currentText.split(':')[1].trim().length > 3) {
+                let separator = ', ';
+                if (currentText.includes(' | ')) separator = ' | ';
+                else if (currentText.includes(' • ')) separator = ' • ';
+
+                para.editAsText().appendText(separator + skill);
+                doc.saveAndClose();
+                return {
+                  success: true,
+                  message: `Added "${skill}" to ${altCategory}.`,
+                  category: altCategory
+                };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Final fallback: use simple placement
+    doc.saveAndClose();
+    return addSkillSimple(skill, docId);
+
+  } catch (error) {
+    console.error('Error in AI skill placement:', error);
+    // Fallback to simple placement on error
+    return addSkillSimple(skill, docId);
+  }
+}
+
+/**
+ * Helper function to add a skill to a table cell.
+ */
+function addSkillToTable(table, skill) {
+  const numRows = table.getNumRows();
+  for (let r = 0; r < numRows; r++) {
+    const row = table.getRow(r);
+    const numCells = row.getNumCells();
+    for (let c = 0; c < numCells; c++) {
+      const cell = row.getCell(c);
+      const cellText = cell.getText().trim();
+      if (cellText && cellText.length > 5) {
+        let separator = ', ';
+        if (cellText.includes(' | ')) separator = ' | ';
+        else if (cellText.includes(' • ')) separator = ' • ';
+        cell.editAsText().appendText(separator + skill);
+        return { added: true };
+      }
+    }
+  }
+  return { added: false };
+}
+
+/**
+ * Normalizes text for comparison (removes punctuation, extra spaces, lowercases).
+ */
+function normalizeForComparison(text) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * Simple skill addition without AI - fallback method.
+ * Adds skill to the first skills-related section found.
+ *
+ * @param {string} skill - The skill to add
+ * @param {string} docId - The document ID
+ * @returns {Object} Result with success status
+ */
+function addSkillSimple(skill, docId) {
+  try {
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+
+    const skillsSectionNames = ['SKILLS', 'TECHNICAL SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES'];
+    let skillsSectionIndex = -1;
+    const numChildren = body.getNumChildren();
+
+    // Find the Skills section header
+    for (let i = 0; i < numChildren; i++) {
+      const element = body.getChild(i);
+      if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
+        const text = element.asParagraph().getText().trim().toUpperCase();
+        if (skillsSectionNames.some(name => text.includes(name))) {
+          skillsSectionIndex = i;
+          break;
+        }
+      }
+    }
+
+    if (skillsSectionIndex === -1) {
+      doc.saveAndClose();
+      return { success: false, error: 'Could not find Skills section in your resume.' };
+    }
+
+    // Find content after the Skills header
+    for (let i = skillsSectionIndex + 1; i < numChildren; i++) {
+      const element = body.getChild(i);
+      const elementType = element.getType();
+
+      // Stop if we hit another section header
+      if (elementType === DocumentApp.ElementType.PARAGRAPH) {
+        const para = element.asParagraph();
+        const text = para.getText().trim();
+        if (text && (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+            text === text.toUpperCase() || isSectionHeader(text))) {
+          break;
+        }
+
+        if (text && text.length > 10) {
+          const currentText = para.getText();
+          if (currentText.toLowerCase().includes(skill.toLowerCase())) {
+            doc.saveAndClose();
+            return { success: false, error: 'This skill is already in your resume.' };
+          }
+
+          let separator = ', ';
+          if (currentText.includes(' | ')) separator = ' | ';
+          else if (currentText.includes(' • ')) separator = ' • ';
+          else if (currentText.includes('; ')) separator = '; ';
+
+          para.editAsText().appendText(separator + skill);
+          doc.saveAndClose();
+          return { success: true, message: `Added "${skill}" to your Skills section.` };
+        }
+      }
+
+      if (elementType === DocumentApp.ElementType.LIST_ITEM) {
+        const listItem = element.asListItem();
+        const text = listItem.getText().trim();
+
+        if (text.toLowerCase().includes(skill.toLowerCase())) {
+          doc.saveAndClose();
+          return { success: false, error: 'This skill is already in your resume.' };
+        }
+
+        const newItem = body.insertListItem(i + 1, skill);
+        newItem.setGlyphType(listItem.getGlyphType());
+        newItem.setNestingLevel(listItem.getNestingLevel());
+        doc.saveAndClose();
+        return { success: true, message: `Added "${skill}" to your Skills section.` };
+      }
+
+      if (elementType === DocumentApp.ElementType.TABLE) {
+        const result = addSkillToTable(element.asTable(), skill);
+        if (result.added) {
+          doc.saveAndClose();
+          return { success: true, message: `Added "${skill}" to your Skills section.` };
+        }
+      }
+    }
+
+    const newPara = body.insertParagraph(skillsSectionIndex + 1, skill);
+    doc.saveAndClose();
+    return { success: true, message: `Added "${skill}" to your Skills section.` };
+
+  } catch (error) {
+    console.error('Error adding skill (simple):', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // ==================== Resume Copy & Modification ====================
 
 /**

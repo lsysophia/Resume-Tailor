@@ -1,6 +1,9 @@
 /**
- * AI Integration for Google Apps Script
+ * AI Provider Integration for Google Apps Script
  * Supports multiple AI providers: Claude, OpenAI, Google Gemini
+ *
+ * This file contains only generic AI infrastructure.
+ * Resume-specific AI functions are in ResumeAnalyzer.gs
  */
 
 // ==================== AI Provider Configuration ====================
@@ -96,6 +99,9 @@ function getAISettings() {
 
 /**
  * Makes a request to the configured AI provider.
+ * @param {string} systemPrompt - The system/context prompt
+ * @param {string} userMessage - The user message/query
+ * @returns {string} The AI response text
  */
 function callAI(systemPrompt, userMessage) {
   const provider = getAIProvider();
@@ -234,141 +240,4 @@ function callGemini(systemPrompt, userMessage, apiKey) {
 
   const data = JSON.parse(responseText);
   return data.candidates[0].content.parts[0].text;
-}
-
-// ==================== Resume Analysis Functions ====================
-
-/**
- * Analyzes how well a resume matches a job description.
- * Returns a match score and analysis.
- */
-function analyzeResumeMatch(resumeData, jobDescription) {
-  const systemPrompt = `You are an expert resume analyst and career coach. Your job is to objectively analyze how well a candidate's resume matches a job description.
-
-Be honest and accurate in your assessment. Do not inflate scores to make the candidate feel good.
-
-You must respond with valid JSON only, no other text.`;
-
-  const userMessage = `Analyze this resume against the job description below.
-
-RESUME:
-${formatResumeForAnalysis(resumeData)}
-
-JOB DESCRIPTION:
-${jobDescription}
-
-Provide your analysis as JSON with this exact structure:
-{
-  "matchScore": <number 0-100>,
-  "summary": "<2-3 sentence overall assessment>",
-  "companyName": "<company name from job posting>",
-  "positionTitle": "<job title/position from job posting>",
-  "strengths": ["<strength 1>", "<strength 2>", ...],
-  "gaps": ["<gap 1>", "<gap 2>", ...],
-  "keywordsMatched": ["<keyword 1>", "<keyword 2>", ...],
-  "keywordsMissing": ["<keyword 1>", "<keyword 2>", ...],
-  "recommendation": "<should they apply? honest advice>"
-}`;
-
-  const response = callAI(systemPrompt, userMessage);
-
-  // Parse the JSON response
-  try {
-    // Handle potential markdown code blocks
-    let jsonStr = response.trim();
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
-    }
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error('Failed to parse AI response:', response);
-    throw new Error('Failed to parse analysis results');
-  }
-}
-
-/**
- * Tailors a resume to better match a job description.
- * Maintains authenticity - only rephrases and reorganizes, doesn't fabricate.
- */
-function tailorResume(resumeData, jobDescription, analysisResults) {
-  const systemPrompt = `You are an expert resume writer who helps candidates present their authentic experience in the best light for specific roles.
-
-CRITICAL RULES:
-1. NEVER invent or fabricate skills, experiences, or achievements
-2. NEVER add anything that isn't already in the resume
-3. You CAN rephrase bullet points to better highlight relevant aspects
-4. You CAN reorder bullet points to put most relevant first
-5. You CAN adjust language to mirror the job description's terminology (where truthful)
-6. You CAN make the summary/objective more targeted
-7. You CAN update the candidate's headline/title to match the target position (e.g., if applying for "Senior Software Engineer", update their title line accordingly)
-8. Maintain a natural, human voice - not robotic or overly formal
-9. Keep the candidate's personality and authentic voice
-
-The goal is to help the candidate's REAL qualifications shine through, not to create a fake persona.
-
-You must respond with valid JSON only, no other text.`;
-
-  const userMessage = `Tailor this resume for the job below. Remember: only rephrase and reorganize - do NOT add fake content.
-
-CURRENT RESUME:
-${formatResumeForAnalysis(resumeData)}
-
-JOB DESCRIPTION:
-${jobDescription}
-
-ANALYSIS (for context):
-- Match Score: ${analysisResults.matchScore}%
-- Key gaps: ${analysisResults.gaps?.join(', ') || 'None identified'}
-- Keywords to incorporate (if truthfully applicable): ${analysisResults.keywordsMissing?.join(', ') || 'None'}
-
-Provide tailored content as JSON with this structure:
-{
-  "changes": [
-    {
-      "section": "<section name>",
-      "original": "<original text>",
-      "tailored": "<rephrased text>",
-      "reason": "<why this change helps>"
-    }
-  ],
-  "reorderSuggestions": [
-    {
-      "section": "<section name>",
-      "suggestion": "<what to move and why>"
-    }
-  ],
-  "overallNotes": "<any other advice for this application>"
-}
-
-Only include changes where rephrasing genuinely improves the match. Quality over quantity.`;
-
-  const response = callAI(systemPrompt, userMessage);
-
-  // Parse the JSON response
-  try {
-    let jsonStr = response.trim();
-    if (jsonStr.startsWith('```')) {
-      jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
-    }
-    return JSON.parse(jsonStr);
-  } catch (e) {
-    console.error('Failed to parse AI response:', response);
-    throw new Error('Failed to parse tailoring results');
-  }
-}
-
-/**
- * Formats resume data for AI analysis.
- */
-function formatResumeForAnalysis(resumeData) {
-  let formatted = '';
-
-  for (const section in resumeData.sections) {
-    formatted += `\n## ${section}\n`;
-    resumeData.sections[section].forEach(item => {
-      formatted += `- ${item.content}\n`;
-    });
-  }
-
-  return formatted.trim();
 }
