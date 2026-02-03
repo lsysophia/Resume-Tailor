@@ -151,6 +151,11 @@ function tailorForJob(jobDescription, analysisResults, candidateName) {
     const resumeData = getResumeData();
     const tailoring = tailorResume(resumeData, jobDescription, analysisResults);
 
+    // Store pending changes for this copy so sidebar can show them when opened in the new doc
+    if (tailoring.changes && tailoring.changes.length > 0) {
+      storePendingChanges(copyInfo.copyId, tailoring.changes);
+    }
+
     return {
       success: true,
       tailoring: tailoring,
@@ -387,4 +392,58 @@ function extractTextFromHtml(html) {
   }
 
   return text;
+}
+
+// ==================== Pending Changes Management ====================
+
+/**
+ * Stores pending changes for a tailored document copy.
+ * This allows the sidebar to show the review UI when opened in the new doc.
+ * @param {string} docId - The tailored document ID
+ * @param {Array} changes - Array of change objects
+ */
+function storePendingChanges(docId, changes) {
+  const userProperties = PropertiesService.getUserProperties();
+  const data = {
+    changes: changes,
+    timestamp: new Date().toISOString()
+  };
+  userProperties.setProperty('PENDING_CHANGES_' + docId, JSON.stringify(data));
+}
+
+/**
+ * Gets pending changes for the current document.
+ * @returns {Object|null} Pending changes data or null if none
+ */
+function getPendingChangesForCurrentDoc() {
+  try {
+    const doc = DocumentApp.getActiveDocument();
+    if (!doc) return null;
+
+    const docId = doc.getId();
+    const userProperties = PropertiesService.getUserProperties();
+    const dataStr = userProperties.getProperty('PENDING_CHANGES_' + docId);
+
+    if (!dataStr) return null;
+
+    const data = JSON.parse(dataStr);
+    return {
+      docId: docId,
+      docName: doc.getName(),
+      changes: data.changes,
+      timestamp: data.timestamp
+    };
+  } catch (e) {
+    console.error('Error getting pending changes:', e);
+    return null;
+  }
+}
+
+/**
+ * Clears pending changes for a document after they've been processed.
+ * @param {string} docId - The document ID to clear
+ */
+function clearPendingChanges(docId) {
+  const userProperties = PropertiesService.getUserProperties();
+  userProperties.deleteProperty('PENDING_CHANGES_' + docId);
 }

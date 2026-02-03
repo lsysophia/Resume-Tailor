@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Google Sans', Roboto, Arial, sans-serif;
+      font-size: 14px;
+      margin: 0;
+      padding: 16px;
+      color: #202124;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 500;
+      margin: 0 0 12px 0;
+      color: #1a73e8;
+    }
+
+    .search-container {
+      margin-bottom: 16px;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .docs-list {
+      max-height: 280px;
+      overflow-y: auto;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .doc-item {
+      padding: 12px;
+      border-bottom: 1px solid #f1f3f4;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background-color 0.15s;
+    }
+
+    .doc-item:last-child {
+      border-bottom: none;
+    }
+
+    .doc-item:hover {
+      background-color: #f8f9fa;
+    }
+
+    .doc-item.selected {
+      background-color: #e8f0fe;
+      border-left: 3px solid #1a73e8;
+    }
+
+    .doc-icon {
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    .doc-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .doc-name {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .doc-date {
+      font-size: 12px;
+      color: #5f6368;
+      margin-top: 2px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 24px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn-primary {
+      background-color: #1a73e8;
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: #1557b0;
+    }
+
+    .btn-primary:disabled {
+      background-color: #dadce0;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background-color: #fff;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+
+    .btn-secondary:hover {
+      background-color: #f8f9fa;
+    }
+
+    .button-row {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: #5f6368;
+    }
+
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #1a73e8;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #5f6368;
+    }
+
+    .current-template {
+      background: #e6f4ea;
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .current-template strong {
+      color: #137333;
+    }
+  </style>
+</head>
+<body>
+  <div id="current-template" class="current-template" style="display: none;">
+    <strong>Current template:</strong> <span id="current-template-name"></span>
+  </div>
+
+  <div class="search-container">
+    <input type="text" class="search-input" id="search" placeholder="Search your Google Docs..." oninput="debounceSearch()">
+  </div>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div>Loading your documents...</div>
+  </div>
+
+  <div id="docs-list" class="docs-list" style="display: none;"></div>
+
+  <div id="empty-state" class="empty-state" style="display: none;">
+    No documents found. Try a different search.
+  </div>
+
+  <div class="button-row">
+    <button class="btn btn-secondary" onclick="google.script.host.close()">Cancel</button>
+    <button class="btn btn-primary" id="select-btn" onclick="selectTemplate()" disabled>Select Template</button>
+  </div>
+
+  <script>
+    let selectedDocId = null;
+    let selectedDocName = null;
+    let searchTimeout = null;
+
+    // Load initial data
+    document.addEventListener('DOMContentLoaded', function() {
+      loadCurrentTemplate();
+      loadRecentDocs();
+    });
+
+    function loadCurrentTemplate() {
+      google.script.run
+        .withSuccessHandler(function(info) {
+          if (info.hasTemplate) {
+            document.getElementById('current-template').style.display = 'block';
+            document.getElementById('current-template-name').textContent = info.templateName;
+          }
+        })
+        .getTemplateInfo();
+    }
+
+    function loadRecentDocs() {
+      showLoading(true);
+      google.script.run
+        .withSuccessHandler(displayDocs)
+        .withFailureHandler(handleError)
+        .getRecentDocs();
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      const query = document.getElementById('search').value.trim();
+
+      searchTimeout = setTimeout(function() {
+        if (query.length === 0) {
+          loadRecentDocs();
+        } else if (query.length >= 2) {
+          searchDocs(query);
+        }
+      }, 300);
+    }
+
+    function searchDocs(query) {
+      showLoading(true);
+      google.script.run
+        .withSuccessHandler(displayDocs)
+        .withFailureHandler(handleError)
+        .searchDocs(query);
+    }
+
+    function displayDocs(docs) {
+      showLoading(false);
+      const listEl = document.getElementById('docs-list');
+      const emptyEl = document.getElementById('empty-state');
+
+      if (!docs || docs.length === 0) {
+        listEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      listEl.style.display = 'block';
+      listEl.innerHTML = docs.map(doc => `
+        <div class="doc-item" onclick="selectDoc('${doc.id}', '${escapeHtml(doc.name)}')" data-id="${doc.id}">
+          <svg class="doc-icon" viewBox="0 0 24 24" fill="#4285f4">
+            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+          </svg>
+          <div class="doc-info">
+            <div class="doc-name">${escapeHtml(doc.name)}</div>
+            <div class="doc-date">Modified: ${doc.modifiedDate}</div>
+          </div>
+        </div>
+      `).join('');
+
+      // Clear selection
+      selectedDocId = null;
+      selectedDocName = null;
+      document.getElementById('select-btn').disabled = true;
+    }
+
+    function selectDoc(docId, docName) {
+      // Remove previous selection
+      document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('selected'));
+
+      // Add selection to clicked item
+      const item = document.querySelector(`.doc-item[data-id="${docId}"]`);
+      if (item) {
+        item.classList.add('selected');
+      }
+
+      selectedDocId = docId;
+      selectedDocName = docName;
+      document.getElementById('select-btn').disabled = false;
+    }
+
+    function selectTemplate() {
+      if (!selectedDocId) return;
+
+      document.getElementById('select-btn').disabled = true;
+      document.getElementById('select-btn').textContent = 'Setting...';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            alert(result.message);
+            google.script.host.close();
+          } else {
+            alert('Error: ' + result.error);
+            document.getElementById('select-btn').disabled = false;
+            document.getElementById('select-btn').textContent = 'Select Template';
+          }
+        })
+        .withFailureHandler(function(err) {
+          alert('Error: ' + err.message);
+          document.getElementById('select-btn').disabled = false;
+          document.getElementById('select-btn').textContent = 'Select Template';
+        })
+        .setDocAsTemplate(selectedDocId);
+    }
+
+    function showLoading(show) {
+      document.getElementById('loading').style.display = show ? 'block' : 'none';
+      if (show) {
+        document.getElementById('docs-list').style.display = 'none';
+        document.getElementById('empty-state').style.display = 'none';
+      }
+    }
+
+    function handleError(error) {
+      showLoading(false);
+      document.getElementById('empty-state').style.display = 'block';
+      document.getElementById('empty-state').textContent = 'Error loading documents: ' + error.message;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML.replace(/'/g, "\\'");
+    }
+  </script>
+</body>
+</html>

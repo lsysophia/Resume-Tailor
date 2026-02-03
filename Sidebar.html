@@ -502,7 +502,41 @@
       checkTemplateStatus();
       loadThresholdSetting();
       loadAIProvider();
+      // Check if this document has pending changes to review
+      checkPendingChanges();
     });
+
+    function checkPendingChanges() {
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result && result.changes && result.changes.length > 0) {
+            // This doc has pending changes - show review UI
+            currentCopyId = result.docId;
+            currentChanges = result.changes;
+            showPendingChangesUI(result);
+          }
+        })
+        .withFailureHandler(function() {
+          // No pending changes or error - proceed normally
+        })
+        .getPendingChangesForCurrentDoc();
+    }
+
+    function showPendingChangesUI(pendingData) {
+      // Hide other sections
+      document.getElementById('input-section').style.display = 'none';
+      document.getElementById('results').classList.remove('show');
+
+      // Update copy info
+      const copyInfo = document.getElementById('copy-info');
+      copyInfo.innerHTML = `
+        <div style="margin-bottom: 8px;"><strong>Reviewing:</strong> ${escapeHtml(pendingData.docName)}</div>
+        <div style="font-size: 11px; color: #137333;">Changes are highlighted in this document for your review.</div>
+      `;
+
+      // Display the changes
+      displayTailoringResults({ changes: pendingData.changes }, null);
+    }
 
     function loadThresholdSetting() {
       google.script.run
@@ -912,6 +946,8 @@
             }
             if (completed === currentChanges.length) {
               hideLoading();
+              // Clear pending changes since all are processed
+              google.script.run.clearPendingChanges(currentCopyId);
               alert(`Accepted ${succeeded} of ${currentChanges.length} changes. Check your document.`);
             }
           })
@@ -919,6 +955,7 @@
             completed++;
             if (completed === currentChanges.length) {
               hideLoading();
+              google.script.run.clearPendingChanges(currentCopyId);
               alert(`Accepted ${succeeded} of ${currentChanges.length} changes. Check your document.`);
             }
           })
@@ -954,6 +991,8 @@
             }
             if (completed === currentChanges.length) {
               hideLoading();
+              // Clear pending changes since all are processed
+              google.script.run.clearPendingChanges(currentCopyId);
               alert(`Rejected ${succeeded} of ${currentChanges.length} changes. Original text restored.`);
             }
           })
@@ -961,6 +1000,7 @@
             completed++;
             if (completed === currentChanges.length) {
               hideLoading();
+              google.script.run.clearPendingChanges(currentCopyId);
               alert(`Rejected ${succeeded} of ${currentChanges.length} changes.`);
             }
           })

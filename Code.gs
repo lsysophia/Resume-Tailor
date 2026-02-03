@@ -13,7 +13,9 @@ function onOpen() {
     .createAddonMenu()
     .addItem('Open Resume Tailor', 'showSidebar')
     .addSeparator()
-    .addItem('Set This Doc as Template', 'setCurrentDocAsTemplate')
+    .addSubMenu(DocumentApp.getUi().createMenu('Set Template')
+      .addItem('Use Current Document', 'setCurrentDocAsTemplate')
+      .addItem('Select from Drive...', 'showTemplatePickerDialog'))
     .addItem('AI Settings', 'showApiKeyDialog')
     .addItem('Help', 'showHelp')
     .addToUi();
@@ -53,6 +55,98 @@ function showApiKeyDialog() {
     .setWidth(450)
     .setHeight(480);
   DocumentApp.getUi().showModalDialog(html, 'AI Settings');
+}
+
+/**
+ * Shows the template picker dialog.
+ */
+function showTemplatePickerDialog() {
+  const html = HtmlService.createHtmlOutputFromFile('TemplatePicker')
+    .setWidth(500)
+    .setHeight(450);
+  DocumentApp.getUi().showModalDialog(html, 'Select Resume Template');
+}
+
+/**
+ * Gets recent Google Docs for the template picker.
+ * @returns {Array} List of recent docs with id, name, and modifiedDate
+ */
+function getRecentDocs() {
+  const docs = [];
+  const files = DriveApp.searchFiles(
+    "mimeType = 'application/vnd.google-apps.document' and trashed = false"
+  );
+
+  let count = 0;
+  const maxDocs = 20; // Limit to 20 most recent
+
+  while (files.hasNext() && count < maxDocs) {
+    const file = files.next();
+    docs.push({
+      id: file.getId(),
+      name: file.getName(),
+      modifiedDate: file.getLastUpdated().toLocaleDateString(),
+      url: file.getUrl()
+    });
+    count++;
+  }
+
+  return docs;
+}
+
+/**
+ * Searches Google Docs by name.
+ * @param {string} query - Search query
+ * @returns {Array} List of matching docs
+ */
+function searchDocs(query) {
+  const docs = [];
+  const searchQuery = `mimeType = 'application/vnd.google-apps.document' and trashed = false and name contains '${query.replace(/'/g, "\\'")}'`;
+  const files = DriveApp.searchFiles(searchQuery);
+
+  let count = 0;
+  const maxDocs = 20;
+
+  while (files.hasNext() && count < maxDocs) {
+    const file = files.next();
+    docs.push({
+      id: file.getId(),
+      name: file.getName(),
+      modifiedDate: file.getLastUpdated().toLocaleDateString(),
+      url: file.getUrl()
+    });
+    count++;
+  }
+
+  return docs;
+}
+
+/**
+ * Sets a specific document as the template by ID.
+ * @param {string} docId - The document ID to set as template
+ * @returns {Object} Result with success status
+ */
+function setDocAsTemplate(docId) {
+  try {
+    const file = DriveApp.getFileById(docId);
+    const docName = file.getName();
+
+    const userProperties = PropertiesService.getUserProperties();
+    userProperties.setProperty('TEMPLATE_RESUME_ID', docId);
+    userProperties.setProperty('TEMPLATE_RESUME_NAME', docName);
+
+    return {
+      success: true,
+      docId: docId,
+      docName: docName,
+      message: `"${docName}" is now set as your template.`
+    };
+  } catch (e) {
+    return {
+      success: false,
+      error: 'Could not access the selected document: ' + e.message
+    };
+  }
 }
 
 /**
@@ -663,8 +757,9 @@ function escapeRegex(string) {
 }
 
 /**
- * Applies a suggested change visually to a document (strikethrough old, highlight new).
- * This mimics "track changes" style review.
+ * Applies a suggested change visually to a document (strikethrough old, green new).
+ * The accept/reject buttons in the sidebar will finalize or revert these changes.
+ *
  * @param {string} docId - The document ID to modify
  * @param {string} originalText - The text to find
  * @param {string} newText - The suggested replacement
@@ -676,7 +771,7 @@ function applySuggestedChangeVisual(docId, originalText, newText, reason) {
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
 
-    // Find the original text
+    // Try to find the exact text
     const found = body.findText(escapeRegex(originalText));
 
     if (found) {
@@ -700,7 +795,7 @@ function applySuggestedChangeVisual(docId, originalText, newText, reason) {
         const insertPos = end + 1;
         text.insertText(insertPos, newText);
 
-        // Apply formatting to new text: green color, no strikethrough
+        // Apply formatting to new text: green color, preserve other formatting
         const newEnd = insertPos + newText.length - 1;
         if (formatting.fontFamily) text.setFontFamily(insertPos, newEnd, formatting.fontFamily);
         if (formatting.fontSize) text.setFontSize(insertPos, newEnd, formatting.fontSize);
@@ -711,10 +806,10 @@ function applySuggestedChangeVisual(docId, originalText, newText, reason) {
       }
 
       doc.saveAndClose();
-      return { success: true, message: 'Suggestion applied visually' };
+      return { success: true, message: 'Suggestion applied' };
     }
 
-    // Fallback: try to find similar text
+    // Fallback: try to find similar text using fuzzy match
     const normalizedOriginal = originalText.toLowerCase().replace(/\s+/g, ' ').trim();
     const numChildren = body.getNumChildren();
 
@@ -734,14 +829,10 @@ function applySuggestedChangeVisual(docId, originalText, newText, reason) {
           const formatting = captureFormatting(textElement, 0);
           const originalLength = text.length;
 
-          // Apply strikethrough and red to entire line
           textElement.setStrikethrough(0, originalLength - 1, true);
           textElement.setForegroundColor(0, originalLength - 1, '#ea4335');
-
-          // Append new text
           textElement.appendText(newText);
 
-          // Format the new text
           const newStart = originalLength;
           const newEnd = newStart + newText.length - 1;
           if (formatting.fontFamily) textElement.setFontFamily(newStart, newEnd, formatting.fontFamily);
