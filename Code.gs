@@ -1193,6 +1193,45 @@ function escapeRegex(string) {
 }
 
 /**
+ * Normalizes text for fuzzy matching.
+ * Removes extra whitespace, normalizes quotes, dashes, etc.
+ */
+function normalizeTextForMatch(text) {
+  if (!text) return '';
+  return text
+    .replace(/[\u2018\u2019]/g, "'")  // Smart quotes to straight
+    .replace(/[\u201C\u201D]/g, '"')  // Smart double quotes
+    .replace(/[\u2013\u2014]/g, '-')  // En/em dash to hyphen
+    .replace(/\s+/g, ' ')             // Multiple spaces to single
+    .replace(/\u00A0/g, ' ')          // Non-breaking space to space
+    .trim();
+}
+
+/**
+ * Checks if two texts match when normalized.
+ * Returns the matching document text if found, null otherwise.
+ */
+function fuzzyTextMatch(searchText, documentText) {
+  const normSearch = normalizeTextForMatch(searchText);
+  const normDoc = normalizeTextForMatch(documentText);
+
+  if (normDoc === normSearch) {
+    return { match: 'exact', docText: documentText };
+  }
+
+  if (normDoc.includes(normSearch)) {
+    return { match: 'contains', docText: documentText };
+  }
+
+  // Try matching first 50 chars (in case AI truncated)
+  if (normSearch.length > 50 && normDoc.includes(normSearch.substring(0, 50))) {
+    return { match: 'partial', docText: documentText };
+  }
+
+  return null;
+}
+
+/**
  * Applies a suggested change visually to a document (strikethrough old, green new).
  * The accept/reject buttons in the sidebar will finalize or revert these changes.
  *
@@ -1460,10 +1499,8 @@ function acceptRemoval(docId, content) {
 
       // Check if this is the entire content of a paragraph/list item
       if (trimmedParent === normalizedContent) {
-        // Remove the entire element (paragraph or list item)
         parent.removeFromParent();
       } else {
-        // Just delete the text portion
         element.editAsText().deleteText(start, end);
       }
 
@@ -1471,43 +1508,123 @@ function acceptRemoval(docId, content) {
       return { success: true, message: 'Content removed' };
     }
 
-    // Try a more lenient search if exact match failed (in case of whitespace issues)
+    // Try a more lenient search if exact match failed
     const paragraphs = body.getParagraphs();
     for (let i = 0; i < paragraphs.length; i++) {
       const para = paragraphs[i];
-      const paraText = para.getText().trim();
-      if (paraText === normalizedContent || paraText.includes(normalizedContent)) {
-        if (paraText === normalizedContent) {
-          // Remove entire paragraph if it's an exact match
-          para.removeFromParent();
-        } else {
-          // Replace the content with empty string
-          const text = para.editAsText();
-          const idx = paraText.indexOf(normalizedContent);
-          if (idx >= 0) {
-            text.deleteText(idx, idx + normalizedContent.length - 1);
-          }
-        }
+      const originalParaText = para.getText();
+      const trimmedParaText = originalParaText.trim();
+
+      if (trimmedParaText === normalizedContent) {
+        para.removeFromParent();
         doc.saveAndClose();
         return { success: true, message: 'Content removed' };
+      } else if (originalParaText.includes(normalizedContent)) {
+        const text = para.editAsText();
+        const idx = originalParaText.indexOf(normalizedContent);
+        if (idx >= 0) {
+          text.deleteText(idx, idx + normalizedContent.length - 1);
+          doc.saveAndClose();
+          return { success: true, message: 'Content removed' };
+        }
       }
     }
 
-    // Also check list items
+    // Check list items
     const lists = body.getListItems();
     for (let i = 0; i < lists.length; i++) {
       const listItem = lists[i];
-      const itemText = listItem.getText().trim();
-      if (itemText === normalizedContent || itemText.includes(normalizedContent)) {
-        if (itemText === normalizedContent) {
-          listItem.removeFromParent();
-        } else {
-          const text = listItem.editAsText();
-          const idx = itemText.indexOf(normalizedContent);
-          if (idx >= 0) {
-            text.deleteText(idx, idx + normalizedContent.length - 1);
+      const originalItemText = listItem.getText();
+      const trimmedItemText = originalItemText.trim();
+
+      if (trimmedItemText === normalizedContent) {
+        listItem.removeFromParent();
+        doc.saveAndClose();
+        return { success: true, message: 'Content removed' };
+      } else if (originalItemText.includes(normalizedContent)) {
+        const text = listItem.editAsText();
+        const idx = originalItemText.indexOf(normalizedContent);
+        if (idx >= 0) {
+          text.deleteText(idx, idx + normalizedContent.length - 1);
+          doc.saveAndClose();
+          return { success: true, message: 'Content removed' };
+        }
+      }
+    }
+
+    // Check table cells
+    const tables = body.getTables();
+    for (let t = 0; t < tables.length; t++) {
+      const table = tables[t];
+      const numRows = table.getNumRows();
+      for (let r = 0; r < numRows; r++) {
+        const row = table.getRow(r);
+        const numCells = row.getNumCells();
+        for (let c = 0; c < numCells; c++) {
+          const cell = row.getCell(c);
+          const cellText = cell.getText();
+
+          if (cellText.includes(normalizedContent)) {
+            const idx = cellText.indexOf(normalizedContent);
+            if (idx >= 0) {
+              cell.editAsText().deleteText(idx, idx + normalizedContent.length - 1);
+              doc.saveAndClose();
+              return { success: true, message: 'Content removed' };
+            }
           }
         }
+      }
+    }
+
+    // FUZZY MATCHING FALLBACK
+    // If exact match failed, try fuzzy matching with normalized text
+    const normalizedSearch = normalizeTextForMatch(normalizedContent);
+
+    // Try fuzzy match on paragraphs
+    for (let i = 0; i < paragraphs.length; i++) {
+      const para = paragraphs[i];
+      const originalParaText = para.getText();
+      const fuzzyResult = fuzzyTextMatch(normalizedContent, originalParaText);
+
+      if (fuzzyResult) {
+        if (fuzzyResult.match === 'exact') {
+          para.removeFromParent();
+          doc.saveAndClose();
+          return { success: true, message: 'Content removed' };
+        } else if (fuzzyResult.match === 'contains' || fuzzyResult.match === 'partial') {
+          const normPara = normalizeTextForMatch(originalParaText);
+          const normIdx = normPara.indexOf(normalizedSearch);
+          if (normIdx >= 0) {
+            const searchStart = normalizedContent.substring(0, Math.min(30, normalizedContent.length));
+            const actualIdx = originalParaText.indexOf(searchStart);
+            if (actualIdx >= 0) {
+              const searchEnd = normalizedContent.substring(Math.max(0, normalizedContent.length - 30));
+              let endIdx = originalParaText.indexOf(searchEnd, actualIdx);
+              if (endIdx >= 0) {
+                endIdx = endIdx + searchEnd.length - 1;
+              } else {
+                endIdx = actualIdx + normalizedContent.length - 1;
+                if (endIdx >= originalParaText.length) {
+                  endIdx = originalParaText.length - 1;
+                }
+              }
+              para.editAsText().deleteText(actualIdx, endIdx);
+              doc.saveAndClose();
+              return { success: true, message: 'Content removed' };
+            }
+          }
+        }
+      }
+    }
+
+    // Try fuzzy match on list items
+    for (let i = 0; i < lists.length; i++) {
+      const listItem = lists[i];
+      const originalItemText = listItem.getText();
+      const fuzzyResult = fuzzyTextMatch(normalizedContent, originalItemText);
+
+      if (fuzzyResult && fuzzyResult.match === 'exact') {
+        listItem.removeFromParent();
         doc.saveAndClose();
         return { success: true, message: 'Content removed' };
       }
@@ -1582,6 +1699,31 @@ function rejectRemoval(docId, content) {
         }
         doc.saveAndClose();
         return { success: true, message: 'Content kept' };
+      }
+    }
+
+    // Also check table cells
+    const tables = body.getTables();
+    for (let t = 0; t < tables.length; t++) {
+      const table = tables[t];
+      const numRows = table.getNumRows();
+      for (let r = 0; r < numRows; r++) {
+        const row = table.getRow(r);
+        const numCells = row.getNumCells();
+        for (let c = 0; c < numCells; c++) {
+          const cell = row.getCell(c);
+          const cellText = cell.getText();
+          if (cellText.includes(normalizedContent)) {
+            const idx = cellText.indexOf(normalizedContent);
+            if (idx >= 0) {
+              const text = cell.editAsText();
+              text.setStrikethrough(idx, idx + normalizedContent.length - 1, false);
+              text.setForegroundColor(idx, idx + normalizedContent.length - 1, null);
+              doc.saveAndClose();
+              return { success: true, message: 'Content kept' };
+            }
+          }
+        }
       }
     }
 
