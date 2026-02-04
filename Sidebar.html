@@ -508,6 +508,41 @@
     </button>
   </div>
 
+  <!-- Pre-Tailor Questionnaire -->
+  <div id="pre-tailor" class="results" style="display: none;">
+    <h3>Before We Tailor...</h3>
+
+    <div style="background: #e8f0fe; padding: 12px; border-radius: 8px; margin-bottom: 16px;">
+      <p style="margin: 0; font-size: 13px; color: #174ea6;">
+        We found some gaps between your resume and this job. Do you have relevant experience that's not currently on your resume?
+      </p>
+    </div>
+
+    <div id="pre-tailor-gaps" style="margin-bottom: 16px;">
+      <h4 style="font-size: 13px; font-weight: 500; margin: 0 0 8px 0; color: #5f6368;">Skills/experience the job is looking for:</h4>
+      <div id="gaps-list" class="chip-list"></div>
+    </div>
+
+    <div style="margin-bottom: 16px;">
+      <label for="additional-context" style="font-size: 13px; font-weight: 500; color: #202124; display: block; margin-bottom: 8px;">
+        Tell us about any relevant experience (optional):
+      </label>
+      <textarea id="additional-context"
+                placeholder="Example: I automated deployment pipelines using GitHub Actions at my last job. I also have experience with CI/CD from personal projects..."
+                style="min-height: 100px;"></textarea>
+      <p style="font-size: 11px; color: #5f6368; margin-top: 4px;">
+        This helps us tailor authentically. We'll only include experience you actually have.
+      </p>
+    </div>
+
+    <button id="proceed-tailor-btn" class="btn btn-success" onclick="proceedWithTailoring()">
+      Continue to Tailor
+    </button>
+    <button class="btn btn-secondary" onclick="backToResults()" style="margin-top: 8px;">
+      Back to Analysis
+    </button>
+  </div>
+
   <!-- Tailoring Results -->
   <div id="tailoring-results" class="tailoring-results">
     <h3>Tailored Resume Created</h3>
@@ -820,12 +855,58 @@
         return;
       }
 
+      // Show the pre-tailor questionnaire instead of immediately tailoring
+      showPreTailorQuestionnaire();
+    }
+
+    function showPreTailorQuestionnaire() {
+      // Hide analysis results
+      document.getElementById('results').classList.remove('show');
+
+      // Populate the gaps list with missing keywords and gaps
+      const gapsList = document.getElementById('gaps-list');
+      const gaps = [];
+
+      // Add gaps from analysis
+      if (currentAnalysis.gaps && currentAnalysis.gaps.length > 0) {
+        gaps.push(...currentAnalysis.gaps);
+      }
+
+      // Add missing keywords
+      if (currentAnalysis.keywordsMissing && currentAnalysis.keywordsMissing.length > 0) {
+        gaps.push(...currentAnalysis.keywordsMissing);
+      }
+
+      if (gaps.length > 0) {
+        gapsList.innerHTML = gaps.map(g => `<span class="chip warning">${escapeHtml(g)}</span>`).join('');
+        document.getElementById('pre-tailor-gaps').style.display = 'block';
+      } else {
+        document.getElementById('pre-tailor-gaps').style.display = 'none';
+      }
+
+      // Clear any previous additional context
+      document.getElementById('additional-context').value = '';
+
+      // Show the pre-tailor section
+      document.getElementById('pre-tailor').style.display = 'block';
+    }
+
+    function backToResults() {
+      document.getElementById('pre-tailor').style.display = 'none';
+      document.getElementById('results').classList.add('show');
+    }
+
+    function proceedWithTailoring() {
+      const additionalContext = document.getElementById('additional-context').value.trim();
+
+      // Hide pre-tailor section and show loading
+      document.getElementById('pre-tailor').style.display = 'none';
       showLoading('Creating tailored copy and generating suggestions...');
 
       google.script.run
         .withSuccessHandler(handleTailoringResult)
         .withFailureHandler(handleError)
-        .tailorForJob(jobDescription, currentAnalysis, candidateName);
+        .tailorForJob(jobDescription, currentAnalysis, candidateName, additionalContext);
     }
 
     function handleTailoringResult(result) {
@@ -1340,6 +1421,7 @@
       document.getElementById('job-description').value = '';
       document.getElementById('results').classList.remove('show');
       document.getElementById('tailoring-results').classList.remove('show');
+      document.getElementById('pre-tailor').style.display = 'none';
       document.getElementById('input-section').style.display = 'block';
       // Show the threshold slider again
       document.getElementById('threshold-section').style.display = 'block';

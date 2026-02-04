@@ -117,7 +117,7 @@ function analyzeJob(input) {
  * @param {string} candidateName - The candidate's name from their resume
  * @returns {Object} Tailoring suggestions and copy info
  */
-function tailorForJob(jobDescription, analysisResults, candidateName) {
+function tailorForJob(jobDescription, analysisResults, candidateName, additionalContext) {
   try {
     if (!hasApiKey()) {
       return {
@@ -147,9 +147,9 @@ function tailorForJob(jobDescription, analysisResults, candidateName) {
       };
     }
 
-    // Get the tailoring suggestions
+    // Get the tailoring suggestions (pass additional context if provided)
     const resumeData = getResumeData();
-    const tailoring = tailorResume(resumeData, jobDescription, analysisResults);
+    const tailoring = tailorResume(resumeData, jobDescription, analysisResults, additionalContext || '');
 
     // Store pending changes for this copy so sidebar can show them when opened in the new doc
     if (tailoring.changes && tailoring.changes.length > 0) {
@@ -525,49 +525,65 @@ CRITICAL - NO DUPLICATES:
  * Tailors a resume to better match a job description.
  * Maintains authenticity - only rephrases and reorganizes, doesn't fabricate.
  * Also suggests adding skills to the Skills section when the candidate has demonstrable experience.
+ *
+ * @param {Object} resumeData - The parsed resume data
+ * @param {string} jobDescription - The job description text
+ * @param {Object} analysisResults - Results from the analysis step
+ * @param {string} additionalContext - Optional user-provided context about unlisted experience
  */
-function tailorResume(resumeData, jobDescription, analysisResults) {
+function tailorResume(resumeData, jobDescription, analysisResults, additionalContext) {
   const systemPrompt = `You are an expert resume writer who helps candidates present their authentic experience in the best light for specific roles.
 
-CRITICAL RULES:
+CRITICAL RULES - AUTHENTICITY IS PARAMOUNT:
 1. NEVER invent or fabricate skills, experiences, or achievements
-2. Do NOT add fake content - only surface skills the candidate demonstrably has
-3. You CAN rephrase bullet points to better highlight relevant aspects
-4. You CAN reorder bullet points to put most relevant first
-5. You CAN adjust language to mirror the job description's terminology (where truthful)
-6. You CAN make the summary/objective more targeted
-7. You CAN update the candidate's headline/title to match the target position
+2. Do NOT add terms/keywords just because they appear in the job description
+3. Only mention skills/technologies that are EXPLICITLY demonstrated in the resume OR confirmed by the candidate
+4. You CAN rephrase bullet points to better highlight relevant aspects THAT ALREADY EXIST
+5. You CAN reorder bullet points to put most relevant first
+6. You CAN adjust language to use similar terminology WHERE THE CANDIDATE DEMONSTRABLY HAS THE SKILL
+7. You CAN make the summary/objective more targeted using ONLY proven qualifications
 8. Maintain a natural, human voice - not robotic or overly formal
 9. Keep the candidate's personality and authentic voice
 
-IMPORTANT - SKILL SECTION UPDATES:
-You SHOULD suggest adding skills/keywords to the Skills section when:
-- The skill is mentioned/required in the job description
-- The candidate DEMONSTRABLY has the skill based on their experience
+STRICT EVIDENCE REQUIREMENT:
+- Every change must be backed by specific evidence from the resume or candidate's additional context
+- Do NOT add buzzwords like "automation", "scalable", "enterprise" unless the resume shows concrete examples
+- If a job wants "automation experience" but the resume doesn't show it, do NOT add it
+- If the candidate provided additional context about unlisted experience, you CAN use that
 
-Examples of valid skill additions (not fabrications - making implicit skills explicit):
-- If resume mentions "ChatGPT" or "built AI features" → suggest adding "LLM", "AI Tooling", "Generative AI"
-- If resume mentions "PostgreSQL" in experience but not in skills → suggest adding "PostgreSQL" to skills
-- If resume mentions "deployed to AWS" → suggest adding "AWS" if not already in skills
-- If resume mentions "REST API development" → suggest adding "REST APIs" or "API Design"
+SKILL ADDITIONS - ONLY WHEN PROVEN:
+You may suggest adding skills to the Skills section ONLY when:
+- The skill is explicitly mentioned in the resume's experience/projects section, OR
+- The candidate confirmed having the skill in their additional context
+- Never suggest skills just because the job description mentions them
 
-The goal is to help the candidate's REAL qualifications shine through, not to create a fake persona.
+The goal is to help the candidate's REAL qualifications shine through, not to keyword-stuff or create a fake persona.
 
 You must respond with valid JSON only, no other text.`;
 
-  const userMessage = `Tailor this resume for the job below. Remember: do NOT add fake content - only rephrase and surface skills the candidate demonstrably has.
+  // Build additional context section if provided
+  const additionalContextSection = additionalContext && additionalContext.trim()
+    ? `\nADDITIONAL CONTEXT FROM CANDIDATE:
+The candidate provided this information about experience not fully reflected in their resume:
+"${additionalContext}"
+You CAN use this information to inform changes, as it represents real experience the candidate has.`
+    : '';
+
+  const userMessage = `Tailor this resume for the job below.
+
+STRICT REQUIREMENT: Only make changes backed by evidence from the resume or candidate's additional context. Do NOT add keywords/skills just because the job description mentions them.
 
 CURRENT RESUME:
 ${formatResumeForAnalysis(resumeData)}
 
 JOB DESCRIPTION:
 ${jobDescription}
+${additionalContextSection}
 
 ANALYSIS (for context):
 - Match Score: ${analysisResults.matchScore}%
 - Key gaps: ${analysisResults.gaps?.join(', ') || 'None identified'}
-- Keywords from job posting to incorporate: ${analysisResults.keywordsMissing?.join(', ') || 'None'}
-- Skills inferred from experience: ${analysisResults.skillsInferredFromExperience?.join(', ') || 'None identified'}
+- Missing keywords (do NOT add these unless candidate has proven experience): ${analysisResults.keywordsMissing?.join(', ') || 'None'}
 
 Provide tailored content as JSON with this structure:
 {
@@ -576,7 +592,8 @@ Provide tailored content as JSON with this structure:
       "section": "<section name>",
       "original": "<original text>",
       "tailored": "<rephrased text>",
-      "reason": "<why this change helps>"
+      "reason": "<why this change helps>",
+      "evidence": "<what in the resume/context proves this change is authentic>"
     }
   ],
   "contentToRemove": [
@@ -589,8 +606,8 @@ Provide tailored content as JSON with this structure:
   "skillsToAdd": [
     {
       "skill": "<skill/keyword to add>",
-      "category": "<suggested category in Skills section, e.g., 'Integration & Services', 'Cloud & DevOps'>",
-      "justification": "<what in the resume proves the candidate has this skill>"
+      "category": "<suggested category in Skills section>",
+      "justification": "<SPECIFIC quote or reference from resume/context proving the candidate has this skill>"
     }
   ],
   "reorderSuggestions": [
@@ -602,22 +619,13 @@ Provide tailored content as JSON with this structure:
   "overallNotes": "<any other advice for this application>"
 }
 
-IMPORTANT for skillsToAdd:
-- Only suggest skills the candidate demonstrably has based on their experience
-- Look for related technologies: ChatGPT implies LLM/AI, "deployed to AWS" implies AWS, etc.
-- Check if skills mentioned in experience are missing from the Skills section
-- Match category names to the resume's existing skill categories if possible
+CRITICAL REQUIREMENTS:
+- For "changes": Every tailored text must be provably true based on the resume or additional context
+- For "skillsToAdd": The justification MUST cite specific text from the resume or additional context. If you can't cite evidence, do NOT suggest the skill.
+- For "contentToRemove": Only suggest if clearly irrelevant to the target role
+- CRITICAL: The "content" field in contentToRemove must be copied EXACTLY from the resume - character for character.
 
-IMPORTANT for contentToRemove:
-- Suggest removing bullet points or content that is NOT relevant to the target role
-- Focus on experience bullets that don't align with the job requirements
-- Be conservative - only suggest removal if the content is clearly irrelevant
-- Do NOT suggest removing contact info, education dates, or company names
-- Provide clear reasoning so the user understands why removal is suggested
-- Examples: A retail job bullet for a software engineering role, an unrelated certification, skills not relevant to this position
-- CRITICAL: The "content" field must be copied EXACTLY from the resume - character for character, including all punctuation. Do not paraphrase or summarize.
-
-Only include changes where rephrasing genuinely improves the match. Quality over quantity.`;
+Quality over quantity. If there's nothing authentic to change, return empty arrays.`;
 
   const response = callAI(systemPrompt, userMessage);
 
