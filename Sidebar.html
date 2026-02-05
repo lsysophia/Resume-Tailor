@@ -374,6 +374,43 @@
       margin-top: 8px;
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .rephrase-panel {
+      margin-top: 12px;
+      padding: 12px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      display: none;
+    }
+
+    .rephrase-panel.show {
+      display: block;
+    }
+
+    .rephrase-panel textarea {
+      min-height: 60px;
+      margin-bottom: 8px;
+      font-size: 12px;
+    }
+
+    .rephrase-panel .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-rephrase {
+      background-color: #fff;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .btn-rephrase:hover {
+      background-color: #f8f9fa;
+      color: #202124;
     }
 
     .change-actions .btn {
@@ -403,10 +440,186 @@
       gap: 8px;
       margin-bottom: 16px;
     }
+
+    /* Intake Screen Styles */
+    .intake-screen {
+      display: none;
+    }
+
+    .intake-screen.show {
+      display: block;
+    }
+
+    .intake-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .intake-header h3 {
+      margin: 0 0 8px 0;
+      color: #1a73e8;
+    }
+
+    .intake-header p {
+      margin: 0;
+      font-size: 13px;
+      color: #5f6368;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: #202124;
+    }
+
+    .form-group select,
+    .form-group input[type="text"] {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
+    }
+
+    .form-group select:focus,
+    .form-group input[type="text"]:focus {
+      outline: none;
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
+    }
+
+    .form-hint {
+      font-size: 11px;
+      color: #5f6368;
+      margin-top: 4px;
+    }
+
+    .profile-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: #e8f0fe;
+      border-radius: 16px;
+      font-size: 12px;
+      color: #174ea6;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .profile-badge:hover {
+      background: #d2e3fc;
+    }
+
+    .profile-badge svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .header-row h2 {
+      margin: 0;
+    }
   </style>
 </head>
 <body>
-  <h2>Resume Tailor</h2>
+  <!-- Header with profile badge -->
+  <div class="header-row">
+    <h2>Resume Tailor</h2>
+    <div id="profile-badge" class="profile-badge" onclick="showIntakeScreen(true)" style="display: none;" title="Edit your profile">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      <span id="profile-badge-text">Tech · Mid-career</span>
+    </div>
+  </div>
+
+  <!-- Intake Screen (shown on first use) -->
+  <div id="intake-screen" class="intake-screen">
+    <div class="intake-header">
+      <h3>Let's personalize your experience</h3>
+      <p>Tell us about your background so we can tailor suggestions to your industry and career stage.</p>
+    </div>
+
+    <div class="form-group">
+      <label for="intake-industry">What industry are you in?</label>
+      <select id="intake-industry">
+        <option value="">Select your industry...</option>
+        <option value="Technology / Software">Technology / Software</option>
+        <option value="Finance / Banking">Finance / Banking</option>
+        <option value="Healthcare / Medical">Healthcare / Medical</option>
+        <option value="Marketing / Advertising">Marketing / Advertising</option>
+        <option value="Sales / Business Development">Sales / Business Development</option>
+        <option value="Education / Academia">Education / Academia</option>
+        <option value="Engineering / Manufacturing">Engineering / Manufacturing</option>
+        <option value="Legal / Compliance">Legal / Compliance</option>
+        <option value="Human Resources">Human Resources</option>
+        <option value="Design / Creative">Design / Creative</option>
+        <option value="Consulting">Consulting</option>
+        <option value="Government / Public Sector">Government / Public Sector</option>
+        <option value="Nonprofit / NGO">Nonprofit / NGO</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+
+    <div class="form-group" id="other-industry-group" style="display: none;">
+      <label for="intake-other-industry">Specify your industry</label>
+      <input type="text" id="intake-other-industry" placeholder="e.g., Real Estate, Hospitality...">
+    </div>
+
+    <div class="form-group">
+      <label for="intake-career-stage">What's your career stage?</label>
+      <select id="intake-career-stage">
+        <option value="">Select your career stage...</option>
+        <option value="Entry-level (0-2 years)">Entry-level (0-2 years)</option>
+        <option value="Early career (2-5 years)">Early career (2-5 years)</option>
+        <option value="Mid-career (5-10 years)">Mid-career (5-10 years)</option>
+        <option value="Senior (10-15 years)">Senior (10-15 years)</option>
+        <option value="Executive / Leadership (15+ years)">Executive / Leadership (15+ years)</option>
+        <option value="Career changer">Career changer</option>
+        <option value="Returning to workforce">Returning to workforce</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="intake-specialization">Specialization or focus area (optional)</label>
+      <input type="text" id="intake-specialization" placeholder="e.g., Frontend Development, Data Science, Product Management...">
+      <div class="form-hint">This helps us understand what aspects of your experience to emphasize</div>
+    </div>
+
+    <div class="form-group">
+      <label for="intake-target-role">Target role type (optional)</label>
+      <select id="intake-target-role">
+        <option value="">Select if applicable...</option>
+        <option value="Individual Contributor">Individual Contributor</option>
+        <option value="Team Lead">Team Lead</option>
+        <option value="Manager">Manager</option>
+        <option value="Director">Director</option>
+        <option value="VP / Executive">VP / Executive</option>
+        <option value="Freelance / Contract">Freelance / Contract</option>
+      </select>
+    </div>
+
+    <button id="intake-save-btn" class="btn btn-primary" onclick="saveIntakeProfile()">
+      Continue
+    </button>
+
+    <button id="intake-skip-btn" class="btn btn-secondary" onclick="skipIntake()" style="margin-top: 8px; display: none;">
+      Skip for now
+    </button>
+  </div>
 
   <!-- Template Status -->
   <div id="template-status" class="template-status not-set">
@@ -431,7 +644,7 @@
   </div>
 
   <!-- AI Provider -->
-  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 8px 12px; background: #f8f9fa; border-radius: 6px;">
+  <div id="ai-provider-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding: 8px 12px; background: #f8f9fa; border-radius: 6px;">
     <span style="font-size: 12px; color: #5f6368;">AI: <strong id="ai-provider-name">Loading...</strong></span>
     <a href="#" onclick="openAISettings(); return false;" style="font-size: 11px; color: #1a73e8; text-decoration: none;">Change</a>
   </div>
@@ -587,15 +800,192 @@
     let currentChanges = [];
     let currentRemovals = [];
     let templateCheckInterval = null;
+    let userProfile = null;
+    let isEditingProfile = false;
 
     // Initialize - check template status and load settings
     document.addEventListener('DOMContentLoaded', function() {
-      checkTemplateStatus();
+      // First check if user has a profile, show intake if not
+      checkUserProfile();
       loadThresholdSetting();
       loadAIProvider();
       // Check if this document has pending changes to review
       checkPendingChanges();
+
+      // Handle "Other" industry selection
+      document.getElementById('intake-industry').addEventListener('change', function() {
+        const otherGroup = document.getElementById('other-industry-group');
+        if (this.value === 'Other') {
+          otherGroup.style.display = 'block';
+        } else {
+          otherGroup.style.display = 'none';
+        }
+      });
     });
+
+    // ==================== User Profile / Intake ====================
+
+    function checkUserProfile() {
+      google.script.run
+        .withSuccessHandler(function(profile) {
+          userProfile = profile;
+          if (profile) {
+            // User has profile, show main UI
+            showMainUI();
+            updateProfileBadge(profile);
+          } else {
+            // No profile, show intake screen
+            showIntakeScreen(false);
+          }
+          // Always check template status
+          checkTemplateStatus();
+        })
+        .withFailureHandler(function() {
+          // On error, just show main UI
+          showMainUI();
+          checkTemplateStatus();
+        })
+        .getUserProfile();
+    }
+
+    function showIntakeScreen(isEditing) {
+      isEditingProfile = isEditing;
+
+      // Hide main UI elements
+      document.getElementById('template-status').style.display = 'none';
+      document.getElementById('threshold-section').style.display = 'none';
+      document.getElementById('input-section').style.display = 'none';
+      document.getElementById('results').classList.remove('show');
+      document.getElementById('tailoring-results').classList.remove('show');
+      document.getElementById('profile-badge').style.display = 'none';
+      document.getElementById('ai-provider-row').style.display = 'none';
+      document.getElementById('error').classList.remove('show');
+      document.getElementById('pre-tailor').style.display = 'none';
+
+      // Show intake screen
+      document.getElementById('intake-screen').classList.add('show');
+
+      // Update button text based on context
+      const saveBtn = document.getElementById('intake-save-btn');
+      const skipBtn = document.getElementById('intake-skip-btn');
+
+      if (isEditing) {
+        saveBtn.textContent = 'Save Changes';
+        skipBtn.style.display = 'block';
+        skipBtn.textContent = 'Cancel';
+
+        // Pre-fill with existing profile
+        if (userProfile) {
+          const industrySelect = document.getElementById('intake-industry');
+          const matchingOption = Array.from(industrySelect.options).find(opt => opt.value === userProfile.industry);
+          if (matchingOption) {
+            industrySelect.value = userProfile.industry;
+          } else if (userProfile.industry) {
+            industrySelect.value = 'Other';
+            document.getElementById('other-industry-group').style.display = 'block';
+            document.getElementById('intake-other-industry').value = userProfile.industry;
+          }
+
+          document.getElementById('intake-career-stage').value = userProfile.careerStage || '';
+          document.getElementById('intake-specialization').value = userProfile.specialization || '';
+          document.getElementById('intake-target-role').value = userProfile.targetRoleType || '';
+        }
+      } else {
+        saveBtn.textContent = 'Continue';
+        skipBtn.style.display = 'none';
+      }
+    }
+
+    function showMainUI() {
+      document.getElementById('intake-screen').classList.remove('show');
+      document.getElementById('template-status').style.display = 'block';
+      document.getElementById('threshold-section').style.display = 'block';
+      document.getElementById('input-section').style.display = 'block';
+      document.getElementById('ai-provider-row').style.display = 'flex';
+
+      if (userProfile) {
+        document.getElementById('profile-badge').style.display = 'flex';
+      }
+    }
+
+    function updateProfileBadge(profile) {
+      if (!profile) return;
+
+      const badge = document.getElementById('profile-badge');
+      const badgeText = document.getElementById('profile-badge-text');
+
+      // Create short display text
+      let industryShort = profile.industry.split(' / ')[0].split(' ')[0]; // "Technology / Software" -> "Technology" -> "Technology"
+      if (industryShort.length > 12) industryShort = industryShort.substring(0, 10) + '...';
+
+      let stageShort = profile.careerStage.split(' (')[0]; // "Mid-career (5-10 years)" -> "Mid-career"
+
+      badgeText.textContent = `${industryShort} · ${stageShort}`;
+      badge.style.display = 'flex';
+    }
+
+    function saveIntakeProfile() {
+      const industrySelect = document.getElementById('intake-industry');
+      let industry = industrySelect.value;
+
+      // Handle "Other" industry
+      if (industry === 'Other') {
+        industry = document.getElementById('intake-other-industry').value.trim();
+        if (!industry) {
+          alert('Please specify your industry.');
+          return;
+        }
+      }
+
+      const careerStage = document.getElementById('intake-career-stage').value;
+      const specialization = document.getElementById('intake-specialization').value.trim();
+      const targetRoleType = document.getElementById('intake-target-role').value;
+
+      if (!industry) {
+        alert('Please select your industry.');
+        return;
+      }
+
+      if (!careerStage) {
+        alert('Please select your career stage.');
+        return;
+      }
+
+      const saveBtn = document.getElementById('intake-save-btn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      const profile = {
+        industry: industry,
+        careerStage: careerStage,
+        specialization: specialization,
+        targetRoleType: targetRoleType
+      };
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          saveBtn.disabled = false;
+          if (result.success) {
+            userProfile = result.profile;
+            updateProfileBadge(result.profile);
+            showMainUI();
+          } else {
+            saveBtn.textContent = isEditingProfile ? 'Save Changes' : 'Continue';
+            alert(result.error || 'Failed to save profile.');
+          }
+        })
+        .withFailureHandler(function(err) {
+          saveBtn.disabled = false;
+          saveBtn.textContent = isEditingProfile ? 'Save Changes' : 'Continue';
+          alert('Error saving profile: ' + (err.message || 'Unknown error'));
+        })
+        .saveUserProfile(profile);
+    }
+
+    function skipIntake() {
+      // Only available when editing - just go back to main UI
+      showMainUI();
+    }
 
     function checkPendingChanges() {
       google.script.run
@@ -807,7 +1197,7 @@
         toAddSection.style.display = 'block';
         document.getElementById('keywords-to-add').innerHTML =
           keywordsToAdd.map(k => `
-            <span class="chip info addable" data-keyword="${escapeHtml(k)}">
+            <span class="chip info addable" data-keyword="${escapeHtml(k)}" data-original-class="info">
               ${escapeHtml(k)}
               <button class="chip-add-btn" onclick="addSkillToResume('${escapeHtml(k).replace(/'/g, "\\'")}', this)" title="Add to Skills section">+</button>
             </span>
@@ -819,7 +1209,7 @@
       // Missing keywords (truly not demonstrated) with "Add" option
       document.getElementById('keywords-missing').innerHTML =
         (analysis.keywordsMissing || []).map(k => `
-          <span class="chip warning addable" data-keyword="${escapeHtml(k)}">
+          <span class="chip warning addable" data-keyword="${escapeHtml(k)}" data-original-class="warning">
             ${escapeHtml(k)}
             <button class="chip-add-btn" onclick="addSkillToResume('${escapeHtml(k).replace(/'/g, "\\'")}', this)" title="Add to your resume">+</button>
           </span>
@@ -985,12 +1375,20 @@
           card.id = 'change-' + index;
           card.innerHTML = `
             <div class="change-section">${change.section}</div>
-            <div class="change-original">${escapeHtml(change.original)}</div>
-            <div class="change-tailored">${escapeHtml(change.tailored)}</div>
-            <div class="change-reason">${escapeHtml(change.reason)}</div>
-            <div class="change-actions">
+            <div class="change-original" id="original-${index}">${escapeHtml(change.original)}</div>
+            <div class="change-tailored" id="tailored-${index}">${escapeHtml(change.tailored)}</div>
+            <div class="change-reason" id="reason-${index}">${escapeHtml(change.reason)}</div>
+            <div class="change-actions" id="actions-${index}">
               <button class="btn btn-success" onclick="acceptChange(${index}, this)">Accept</button>
               <button class="btn btn-secondary" onclick="rejectChange(${index}, this)">Reject</button>
+              <button class="btn btn-rephrase" onclick="showRephrasePanel(${index})">Rephrase</button>
+            </div>
+            <div class="rephrase-panel" id="rephrase-panel-${index}">
+              <textarea id="rephrase-feedback-${index}" placeholder="What should be different? e.g., 'Don't mention payment systems - I have no experience with that' or 'Less embellishment, keep it factual'"></textarea>
+              <div class="btn-row">
+                <button class="btn btn-primary btn-small" onclick="submitRephrase(${index})">Regenerate</button>
+                <button class="btn btn-secondary btn-small" onclick="hideRephrasePanel(${index})">Cancel</button>
+              </div>
             </div>
           `;
           changesList.appendChild(card);
@@ -1107,11 +1505,14 @@
           if (result.success) {
             card.style.background = '#e6f4ea';
             card.querySelector('strong').style.color = '#137333';
-            btn.textContent = '✓ Added';
-            btn.disabled = true;
-            btn.style.background = '#e6f4ea';
-            btn.style.color = '#137333';
-            btn.style.border = '1px solid #137333';
+            // Replace Add button with Remove button
+            btn.textContent = '− Remove';
+            btn.disabled = false;
+            btn.style.background = '#fff';
+            btn.style.color = '#c5221f';
+            btn.style.border = '1px solid #c5221f';
+            btn.className = 'btn btn-secondary';
+            btn.onclick = function() { removeSuggestedSkill(skill, btn); };
           } else {
             btn.textContent = 'Failed';
             btn.style.background = '#fce8e6';
@@ -1133,6 +1534,43 @@
         .addSkillToCopy(skill, currentCopyId);
     }
 
+    function removeSuggestedSkill(skill, btn) {
+      btn.disabled = true;
+      btn.textContent = 'Removing...';
+      const card = btn.closest('.skill-suggestion');
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Reset card to original state
+            card.style.background = '#fef7e0';
+            card.querySelector('strong').style.color = '#b05a00';
+            // Replace Remove button with Add button
+            btn.textContent = '+ Add';
+            btn.disabled = false;
+            btn.style.background = '';
+            btn.style.color = '';
+            btn.style.border = '';
+            btn.className = 'btn btn-success';
+            btn.onclick = function() { addSuggestedSkill(skill, btn); };
+          } else {
+            btn.textContent = 'Failed';
+            setTimeout(() => {
+              btn.textContent = '− Remove';
+              btn.disabled = false;
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = 'Error';
+          setTimeout(() => {
+            btn.textContent = '− Remove';
+            btn.disabled = false;
+          }, 2000);
+        })
+        .removeSkillFromCopy(skill, currentCopyId);
+    }
+
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -1148,10 +1586,16 @@
       google.script.run
         .withSuccessHandler(function(result) {
           if (result.success) {
-            // Mark as added
-            chip.classList.remove('warning');
+            // Store original class before changing
+            const origClass = chip.dataset.originalClass || (chip.classList.contains('info') ? 'info' : 'warning');
+            // Mark as added with a Remove button
+            chip.classList.remove('warning', 'info');
             chip.classList.add('added');
-            chip.innerHTML = escapeHtml(skill) + ' <span style="font-size: 10px;">✓ Added</span>';
+            chip.dataset.originalClass = origClass; // Preserve for removal
+            chip.innerHTML = `
+              ${escapeHtml(skill)}
+              <button class="chip-add-btn" onclick="removeSkillFromResume('${escapeHtml(skill).replace(/'/g, "\\'")}', this)" title="Remove from Skills section" style="background: rgba(197, 34, 31, 0.2); color: #c5221f;">−</button>
+            `;
           } else {
             // Show error briefly, then restore
             btn.textContent = '!';
@@ -1173,6 +1617,45 @@
           }, 2000);
         })
         .addSkillToTemplate(skill);
+    }
+
+    function removeSkillFromResume(skill, btn) {
+      btn.disabled = true;
+      btn.textContent = '...';
+      const chip = btn.parentElement;
+      const originalClass = chip.dataset.originalClass || 'warning';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Reset chip to original state with Add button
+            chip.classList.remove('added');
+            chip.classList.add(originalClass);
+            chip.dataset.originalClass = originalClass; // Preserve for future toggles
+            chip.innerHTML = `
+              ${escapeHtml(skill)}
+              <button class="chip-add-btn" onclick="addSkillToResume('${escapeHtml(skill).replace(/'/g, "\\'")}', this)" title="Add to Skills section">+</button>
+            `;
+          } else {
+            btn.textContent = '!';
+            btn.title = result.error || 'Failed to remove';
+            setTimeout(() => {
+              btn.textContent = '−';
+              btn.disabled = false;
+              btn.title = 'Remove from Skills section';
+            }, 2000);
+          }
+        })
+        .withFailureHandler(function(err) {
+          btn.textContent = '!';
+          btn.title = err.message || 'Error';
+          setTimeout(() => {
+            btn.textContent = '−';
+            btn.disabled = false;
+            btn.title = 'Remove from Skills section';
+          }, 2000);
+        })
+        .removeSkillFromTemplate(skill);
     }
 
     function acceptChange(index, btn) {
@@ -1249,6 +1732,124 @@
           }, 2000);
         })
         .rejectSuggestedChange(currentCopyId, change.original, change.tailored);
+    }
+
+    function showRephrasePanel(index) {
+      const panel = document.getElementById('rephrase-panel-' + index);
+      if (panel) {
+        panel.classList.add('show');
+        // Hide the rephrase button since panel is now open
+        const actions = document.getElementById('actions-' + index);
+        const rephraseBtn = actions.querySelector('.btn-rephrase');
+        if (rephraseBtn) rephraseBtn.style.display = 'none';
+      }
+    }
+
+    function hideRephrasePanel(index) {
+      const panel = document.getElementById('rephrase-panel-' + index);
+      if (panel) {
+        panel.classList.remove('show');
+        // Show the rephrase button again
+        const actions = document.getElementById('actions-' + index);
+        const rephraseBtn = actions.querySelector('.btn-rephrase');
+        if (rephraseBtn) rephraseBtn.style.display = '';
+      }
+    }
+
+    function submitRephrase(index) {
+      const change = currentChanges[index];
+      if (!change) return;
+
+      const feedbackEl = document.getElementById('rephrase-feedback-' + index);
+      const feedback = feedbackEl ? feedbackEl.value.trim() : '';
+
+      if (!feedback) {
+        alert('Please enter what you want to change about this suggestion.');
+        return;
+      }
+
+      // Store the OLD tailored text before we update it
+      const oldTailored = change.tailored;
+
+      // Get the job description from the input field
+      const jobDescEl = document.getElementById('job-description');
+      const jobDescription = jobDescEl ? jobDescEl.value.trim() : '';
+
+      const panel = document.getElementById('rephrase-panel-' + index);
+      const tailoredEl = document.getElementById('tailored-' + index);
+      const reasonEl = document.getElementById('reason-' + index);
+
+      // Show loading state
+      panel.innerHTML = '<div style="text-align: center; padding: 12px; color: #5f6368;">Regenerating suggestion...</div>';
+
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (result.success) {
+            // Update the document first (replace old green text with new)
+            if (currentCopyId) {
+              google.script.run
+                .withSuccessHandler(function(docResult) {
+                  if (!docResult.success) {
+                    console.warn('Could not update document:', docResult.message);
+                  }
+                })
+                .withFailureHandler(function(err) {
+                  console.warn('Error updating document:', err);
+                })
+                .updateSuggestedChangeVisual(currentCopyId, change.original, oldTailored, result.tailored);
+            }
+
+            // Update the change in our local array
+            currentChanges[index].tailored = result.tailored;
+            currentChanges[index].reason = result.reason;
+
+            // Update the UI
+            tailoredEl.textContent = result.tailored;
+            reasonEl.textContent = result.reason;
+
+            // Hide the panel and restore the button
+            panel.classList.remove('show');
+            panel.innerHTML = `
+              <textarea id="rephrase-feedback-${index}" placeholder="What should be different? e.g., 'Don't mention payment systems - I have no experience with that' or 'Less embellishment, keep it factual'"></textarea>
+              <div class="btn-row">
+                <button class="btn btn-primary btn-small" onclick="submitRephrase(${index})">Regenerate</button>
+                <button class="btn btn-secondary btn-small" onclick="hideRephrasePanel(${index})">Cancel</button>
+              </div>
+            `;
+
+            // Show success briefly
+            tailoredEl.style.transition = 'background-color 0.3s';
+            tailoredEl.style.backgroundColor = '#c8e6c9';
+            setTimeout(() => {
+              tailoredEl.style.backgroundColor = '';
+            }, 1500);
+
+            // Show the rephrase button again
+            const actions = document.getElementById('actions-' + index);
+            const rephraseBtn = actions.querySelector('.btn-rephrase');
+            if (rephraseBtn) rephraseBtn.style.display = '';
+          } else {
+            panel.innerHTML = `
+              <div style="color: #c5221f; margin-bottom: 8px;">Error: ${result.error || 'Failed to regenerate'}</div>
+              <textarea id="rephrase-feedback-${index}" placeholder="What should be different?">${feedback}</textarea>
+              <div class="btn-row">
+                <button class="btn btn-primary btn-small" onclick="submitRephrase(${index})">Try Again</button>
+                <button class="btn btn-secondary btn-small" onclick="hideRephrasePanel(${index})">Cancel</button>
+              </div>
+            `;
+          }
+        })
+        .withFailureHandler(function(err) {
+          panel.innerHTML = `
+            <div style="color: #c5221f; margin-bottom: 8px;">Error: ${err.message || 'Failed to regenerate'}</div>
+            <textarea id="rephrase-feedback-${index}" placeholder="What should be different?">${feedback}</textarea>
+            <div class="btn-row">
+              <button class="btn btn-primary btn-small" onclick="submitRephrase(${index})">Try Again</button>
+              <button class="btn btn-secondary btn-small" onclick="hideRephrasePanel(${index})">Cancel</button>
+            </div>
+          `;
+        })
+        .rephraseChange(change.original, change.tailored, feedback, jobDescription);
     }
 
     function acceptRemoval(index, btn) {

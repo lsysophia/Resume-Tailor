@@ -486,6 +486,301 @@ function addSkillToCopy(skill, copyId) {
 }
 
 /**
+ * Removes a skill from a tailored copy's Skills section.
+ * Used when user wants to undo adding a skill.
+ *
+ * @param {string} skill - The skill to remove
+ * @param {string} copyId - The document ID of the tailored copy
+ * @returns {Object} Result with success status
+ */
+function removeSkillFromCopy(skill, copyId) {
+  try {
+    if (!copyId) {
+      return { success: false, error: 'No document ID provided.' };
+    }
+
+    // Verify the document exists
+    try {
+      DocumentApp.openById(copyId);
+    } catch (e) {
+      return { success: false, error: 'Could not access the tailored copy.' };
+    }
+
+    return removeSkillFromDocument(skill, copyId);
+  } catch (error) {
+    console.error('Error removing skill from copy:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Removes a skill from the template resume's Skills section.
+ * Used when user wants to undo adding a skill to their master resume.
+ *
+ * @param {string} skill - The skill to remove
+ * @returns {Object} Result with success status
+ */
+function removeSkillFromTemplate(skill) {
+  try {
+    const templateInfo = getTemplateInfo();
+    if (!templateInfo.hasTemplate) {
+      return { success: false, error: 'No template resume set.' };
+    }
+
+    return removeSkillFromDocument(skill, templateInfo.templateId);
+  } catch (error) {
+    console.error('Error removing skill from template:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Generic function to remove a skill from any document's Skills section.
+ * @param {string} skill - The skill to remove
+ * @param {string} docId - The document ID
+ * @returns {Object} Result with success status
+ */
+function removeSkillFromDocument(skill, docId) {
+  try {
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+
+    // Search for the skill in the Skills section
+    const skillsText = getSkillsSectionText(body);
+    if (!skillsText || !skillsText.toLowerCase().includes(skill.toLowerCase())) {
+      doc.saveAndClose();
+      return { success: false, error: 'Skill not found in Skills section.' };
+    }
+
+    // Find and remove the skill from paragraphs in Skills section
+    const skillsSectionNames = ['SKILLS', 'TECHNICAL SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES'];
+    const numChildren = body.getNumChildren();
+    let inSkillsSection = false;
+
+    for (let i = 0; i < numChildren; i++) {
+      const element = body.getChild(i);
+      const elementType = element.getType();
+
+      if (elementType === DocumentApp.ElementType.PARAGRAPH) {
+        const para = element.asParagraph();
+        const text = para.getText();
+        const upperText = text.toUpperCase();
+
+        // Check if entering Skills section
+        if (skillsSectionNames.some(name => upperText.includes(name))) {
+          inSkillsSection = true;
+        }
+
+        // Check if leaving Skills section (but not if it's the Skills header itself)
+        if (inSkillsSection && text.trim() &&
+            !skillsSectionNames.some(name => upperText.includes(name)) &&
+            (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+             (text.trim() === text.trim().toUpperCase() && text.trim().length > 3 && !text.includes(':')))) {
+          break;
+        }
+
+        // Look for the skill in this paragraph
+        if (inSkillsSection && containsSkillAsWord(text, skill)) {
+          const result = removeSkillFromText(para, skill);
+          if (result.removed) {
+            doc.saveAndClose();
+            return { success: true, message: `Removed "${skill}" from Skills section.` };
+          }
+        }
+      }
+
+      // Also check list items in Skills section
+      if (inSkillsSection && elementType === DocumentApp.ElementType.LIST_ITEM) {
+        const listItem = element.asListItem();
+        const itemText = listItem.getText();
+
+        if (containsSkillAsWord(itemText, skill)) {
+          // If the list item is just this skill, remove the whole item
+          if (itemText.trim().toLowerCase() === skill.toLowerCase()) {
+            listItem.removeFromParent();
+            doc.saveAndClose();
+            return { success: true, message: `Removed "${skill}" from Skills section.` };
+          }
+          // Otherwise try to remove just the skill text
+          const result = removeSkillFromText(listItem, skill);
+          if (result.removed) {
+            doc.saveAndClose();
+            return { success: true, message: `Removed "${skill}" from Skills section.` };
+          }
+        }
+      }
+
+      // Check tables in Skills section
+      if (inSkillsSection && elementType === DocumentApp.ElementType.TABLE) {
+        const table = element.asTable();
+        for (let r = 0; r < table.getNumRows(); r++) {
+          const row = table.getRow(r);
+          for (let c = 0; c < row.getNumCells(); c++) {
+            const cell = row.getCell(c);
+            const cellText = cell.getText();
+
+            if (containsSkillAsWord(cellText, skill)) {
+              const result = removeSkillFromTableCell(cell, skill);
+              if (result.removed) {
+                doc.saveAndClose();
+                return { success: true, message: `Removed "${skill}" from Skills section.` };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    doc.saveAndClose();
+    return { success: false, error: 'Could not remove skill. It may have been modified.' };
+
+  } catch (error) {
+    console.error('Error removing skill from document:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Checks if text contains the skill as a whole word (not part of another word).
+ * @param {string} text - The text to search in
+ * @param {string} skill - The skill to find
+ * @returns {boolean} True if skill found as whole word
+ */
+function containsSkillAsWord(text, skill) {
+  const lowerText = text.toLowerCase();
+  const lowerSkill = skill.toLowerCase();
+
+  let idx = lowerText.indexOf(lowerSkill);
+  while (idx >= 0) {
+    // Check character before
+    const charBefore = idx > 0 ? lowerText[idx - 1] : ' ';
+    // Check character after
+    const charAfter = idx + lowerSkill.length < lowerText.length ? lowerText[idx + lowerSkill.length] : ' ';
+
+    // Skill is a whole word if surrounded by non-alphanumeric chars
+    const isWordBoundaryBefore = !/[a-z0-9]/.test(charBefore);
+    const isWordBoundaryAfter = !/[a-z0-9]/.test(charAfter);
+
+    if (isWordBoundaryBefore && isWordBoundaryAfter) {
+      return true;
+    }
+
+    // Keep searching for another occurrence
+    idx = lowerText.indexOf(lowerSkill, idx + 1);
+  }
+
+  return false;
+}
+
+/**
+ * Finds the position of a skill as a whole word in text.
+ * @param {string} text - The text to search in
+ * @param {string} skill - The skill to find
+ * @returns {number} Index of skill or -1 if not found
+ */
+function findSkillAsWord(text, skill) {
+  const lowerText = text.toLowerCase();
+  const lowerSkill = skill.toLowerCase();
+
+  let idx = lowerText.indexOf(lowerSkill);
+  while (idx >= 0) {
+    const charBefore = idx > 0 ? lowerText[idx - 1] : ' ';
+    const charAfter = idx + lowerSkill.length < lowerText.length ? lowerText[idx + lowerSkill.length] : ' ';
+
+    const isWordBoundaryBefore = !/[a-z0-9]/.test(charBefore);
+    const isWordBoundaryAfter = !/[a-z0-9]/.test(charAfter);
+
+    if (isWordBoundaryBefore && isWordBoundaryAfter) {
+      return idx;
+    }
+
+    idx = lowerText.indexOf(lowerSkill, idx + 1);
+  }
+
+  return -1;
+}
+
+/**
+ * Helper to remove a skill from a text element (paragraph or list item).
+ * Handles various separators (, | • ;)
+ */
+function removeSkillFromText(element, skill) {
+  const text = element.getText();
+
+  // Find the skill as a whole word
+  const idx = findSkillAsWord(text, skill);
+  if (idx < 0) return { removed: false };
+
+  // Determine what to remove (skill + surrounding separator)
+  let startIdx = idx;
+  let endIdx = idx + skill.length;
+
+  // Check for separator before the skill
+  const before = text.substring(Math.max(0, idx - 3), idx);
+  // Check for separator after the skill
+  const after = text.substring(endIdx, Math.min(text.length, endIdx + 3));
+
+  // Common separators: ", " " | " " • " "; "
+  if (before.endsWith(', ')) {
+    startIdx = idx - 2;
+  } else if (before.endsWith(' | ')) {
+    startIdx = idx - 3;
+  } else if (before.endsWith(' • ')) {
+    startIdx = idx - 3;
+  } else if (before.endsWith('; ')) {
+    startIdx = idx - 2;
+  } else if (after.startsWith(', ')) {
+    endIdx = idx + skill.length + 2;
+  } else if (after.startsWith(' | ')) {
+    endIdx = idx + skill.length + 3;
+  } else if (after.startsWith(' • ')) {
+    endIdx = idx + skill.length + 3;
+  } else if (after.startsWith('; ')) {
+    endIdx = idx + skill.length + 2;
+  }
+
+  // Delete the text
+  const editableText = element.editAsText();
+  editableText.deleteText(startIdx, endIdx - 1);
+
+  return { removed: true };
+}
+
+/**
+ * Helper to remove a skill from a table cell.
+ */
+function removeSkillFromTableCell(cell, skill) {
+  const text = cell.getText();
+
+  // Find the skill as a whole word
+  const idx = findSkillAsWord(text, skill);
+  if (idx < 0) return { removed: false };
+
+  let startIdx = idx;
+  let endIdx = idx + skill.length;
+
+  const before = text.substring(Math.max(0, idx - 3), idx);
+  const after = text.substring(endIdx, Math.min(text.length, endIdx + 3));
+
+  if (before.endsWith(', ')) {
+    startIdx = idx - 2;
+  } else if (before.endsWith(' | ')) {
+    startIdx = idx - 3;
+  } else if (before.endsWith(' • ')) {
+    startIdx = idx - 3;
+  } else if (after.startsWith(', ')) {
+    endIdx = idx + skill.length + 2;
+  } else if (after.startsWith(' | ')) {
+    endIdx = idx + skill.length + 3;
+  } else if (after.startsWith(' • ')) {
+    endIdx = idx + skill.length + 3;
+  }
+
+  cell.editAsText().deleteText(startIdx, endIdx - 1);
+  return { removed: true };
+}
+
+/**
  * Adds a skill using AI to determine the correct category placement.
  * @param {string} skill - The skill to add
  * @param {string} docId - The document ID
@@ -1732,6 +2027,69 @@ function rejectRemoval(docId, content) {
 
   } catch (error) {
     console.error('Error rejecting removal:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Updates a visual suggestion in the document after rephrasing.
+ * Replaces the old green text with the new rephrased text.
+ * @param {string} docId - The document ID
+ * @param {string} originalText - The original (strikethrough red) text
+ * @param {string} oldTailored - The old suggested (green) text to replace
+ * @param {string} newTailored - The new rephrased text
+ * @returns {Object} Result with success status
+ */
+function updateSuggestedChangeVisual(docId, originalText, oldTailored, newTailored) {
+  try {
+    const doc = DocumentApp.openById(docId);
+    const body = doc.getBody();
+
+    // Find the combined text (original with strikethrough + old tailored text)
+    const combinedPattern = escapeRegex(originalText + oldTailored);
+    const found = body.findText(combinedPattern);
+
+    if (found) {
+      const element = found.getElement();
+      const start = found.getStartOffset();
+      const parent = element.getParent();
+
+      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+        const text = parent.editAsText();
+
+        // Calculate positions
+        const oldTailoredStart = start + originalText.length;
+        const oldTailoredEnd = oldTailoredStart + oldTailored.length - 1;
+
+        // Capture formatting from the old tailored text
+        const formatting = captureFormatting(text, oldTailoredStart);
+
+        // Delete the old tailored text
+        text.deleteText(oldTailoredStart, oldTailoredEnd);
+
+        // Insert the new tailored text at the same position
+        text.insertText(oldTailoredStart, newTailored);
+
+        // Apply green formatting to the new text
+        const newTailoredEnd = oldTailoredStart + newTailored.length - 1;
+        if (formatting.fontFamily) text.setFontFamily(oldTailoredStart, newTailoredEnd, formatting.fontFamily);
+        if (formatting.fontSize) text.setFontSize(oldTailoredStart, newTailoredEnd, formatting.fontSize);
+        text.setBold(oldTailoredStart, newTailoredEnd, formatting.bold || false);
+        text.setItalic(oldTailoredStart, newTailoredEnd, formatting.italic || false);
+        text.setForegroundColor(oldTailoredStart, newTailoredEnd, '#34a853'); // Green
+        text.setStrikethrough(oldTailoredStart, newTailoredEnd, false);
+      }
+
+      doc.saveAndClose();
+      return { success: true, message: 'Suggestion updated in document' };
+    }
+
+    doc.saveAndClose();
+    return { success: false, message: 'Could not find the original suggestion to update.' };
+
+  } catch (error) {
+    console.error('Error updating visual suggestion:', error);
     return { success: false, message: error.message };
   }
 }

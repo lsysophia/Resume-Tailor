@@ -5,6 +5,98 @@
 // Default minimum match score required for tailoring
 const DEFAULT_MIN_MATCH_SCORE = 80;
 
+// ==================== User Profile Management ====================
+
+/**
+ * Gets the user's profile settings.
+ * @returns {Object} User profile with industry, careerStage, etc.
+ */
+function getUserProfile() {
+  const userProperties = PropertiesService.getUserProperties();
+  const profileStr = userProperties.getProperty('USER_PROFILE');
+
+  if (!profileStr) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(profileStr);
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Saves the user's profile settings.
+ * @param {Object} profile - The profile object to save
+ * @returns {Object} Result with success status
+ */
+function saveUserProfile(profile) {
+  try {
+    const userProperties = PropertiesService.getUserProperties();
+
+    // Validate required fields
+    if (!profile.industry || !profile.careerStage) {
+      return {
+        success: false,
+        error: 'Industry and career stage are required.'
+      };
+    }
+
+    const profileData = {
+      industry: profile.industry,
+      careerStage: profile.careerStage,
+      specialization: profile.specialization || '',
+      targetRoleType: profile.targetRoleType || '',
+      updatedAt: new Date().toISOString()
+    };
+
+    userProperties.setProperty('USER_PROFILE', JSON.stringify(profileData));
+
+    return {
+      success: true,
+      profile: profileData
+    };
+  } catch (e) {
+    console.error('Error saving user profile:', e);
+    return {
+      success: false,
+      error: e.message || 'Failed to save profile.'
+    };
+  }
+}
+
+/**
+ * Checks if the user has completed the intake process.
+ * @returns {boolean} True if profile exists
+ */
+function hasUserProfile() {
+  return getUserProfile() !== null;
+}
+
+/**
+ * Formats user profile context for AI prompts.
+ * @returns {string} Formatted context string
+ */
+function formatUserProfileForAI() {
+  const profile = getUserProfile();
+  if (!profile) return '';
+
+  let context = `\nCANDIDATE CONTEXT:`;
+  context += `\n- Industry: ${profile.industry}`;
+  context += `\n- Career Stage: ${profile.careerStage}`;
+
+  if (profile.specialization) {
+    context += `\n- Specialization/Focus: ${profile.specialization}`;
+  }
+
+  if (profile.targetRoleType) {
+    context += `\n- Target Role Type: ${profile.targetRoleType}`;
+  }
+
+  return context;
+}
+
 /**
  * Gets the minimum match score threshold from user settings.
  */
@@ -458,16 +550,39 @@ function clearPendingChanges(docId) {
  * but also infers them from work experience, projects, and achievements.
  */
 function analyzeResumeMatch(resumeData, jobDescription) {
-  const systemPrompt = `You are an expert resume analyst and career coach. Your job is to objectively analyze how well a candidate's resume matches a job description.
+  // Get user profile context if available
+  const profileContext = formatUserProfileForAI();
+
+  const systemPrompt = `You are an expert resume analyst and career coach with deep technical knowledge. Your job is to objectively analyze how well a candidate's resume matches a job description.
 
 Be honest and accurate in your assessment. Do not inflate scores to make the candidate feel good.
+${profileContext ? `
+CANDIDATE BACKGROUND:
+Consider this context about the candidate when analyzing their fit:
+${profileContext}
+
+Use this context to:
+- Understand their industry norms and terminology expectations
+- Assess fit based on their career stage (entry-level candidates need different things than senior)
+- Consider if they're a career changer who may have transferable skills
+- Tailor your recommendations to their specific situation` : ''}
+
+CRITICAL - TECHNICAL PRECISION:
+You must be precise about technical terminology. Similar-sounding terms are often DIFFERENT things:
+- "service-based architecture" (microservices/SOA) ≠ "service layer pattern" (code organization)
+- "distributed systems" ≠ "client-server architecture"
+- "CI/CD pipelines" ≠ "automated testing"
+- "event-driven architecture" ≠ "using webhooks"
+- "container orchestration" ≠ "using Docker"
+
+Only claim a match when the candidate's experience ACTUALLY matches what the job is asking for, not just sounds similar.
 
 CRITICAL: When analyzing skills, you must distinguish between:
 1. Skills explicitly listed in the Skills section
 2. Skills demonstrated through experience but NOT in Skills section (implicit skills)
 3. Skills truly missing (not demonstrated anywhere)
 
-For scoring, give credit for both explicit AND implicit skills.
+For scoring, give credit for both explicit AND implicit skills, but ONLY when there's a genuine match.
 
 You must respond with valid JSON only, no other text.`;
 
@@ -488,7 +603,7 @@ Provide your analysis as JSON with this exact structure:
   "strengths": ["<strength 1>", "<strength 2>", ...],
   "gaps": ["<gap 1>", "<gap 2>", ...],
   "keywordsMatched": ["<keywords explicitly in Skills section>", ...],
-  "keywordsToAddToSkills": ["<keywords demonstrated in experience but NOT in Skills section - e.g., if they used PostgreSQL in a job but it's not listed as a skill>", ...],
+  "keywordsToAddToSkills": ["<keywords demonstrated in experience but NOT in Skills section>", ...],
   "keywordsMissing": ["<keywords truly not demonstrated anywhere in resume>", ...],
   "skillsInferredFromExperience": ["<skill inferred from work descriptions>", ...],
   "recommendation": "<should they apply? honest advice>"
@@ -496,14 +611,18 @@ Provide your analysis as JSON with this exact structure:
 
 IMPORTANT distinctions:
 - keywordsMatched: Skills from job description that ARE in the candidate's Skills section
-- keywordsToAddToSkills: Skills from job description that the candidate HAS (mentioned in experience/projects) but NOT listed in Skills section. Examples: "ChatGPT" in experience means add "LLM", "AI"; "PostgreSQL" in experience means add "PostgreSQL" to skills
+- keywordsToAddToSkills: Skills the candidate CLEARLY demonstrates in experience/projects but NOT in Skills section
+  - ONLY include if there's EXACT or very close terminology match
+  - "PostgreSQL" in experience → add "PostgreSQL" ✓
+  - "built REST APIs" → add "REST APIs" ✓
+  - "organized code into services" → add "service-based architecture" ✗ (different concept!)
 - keywordsMissing: Skills from job description the candidate does NOT demonstrate anywhere
 
-CRITICAL - NO DUPLICATES:
-- Each skill should appear in ONLY ONE of the three keyword lists
-- Treat variations as the same skill: "PostgreSQL" = "Postgres", "JavaScript" = "JS", "Machine Learning" = "ML"
-- If a skill is in keywordsToAddToSkills, do NOT also put it in keywordsMissing
-- If unsure where a skill belongs, prefer keywordsToAddToSkills over keywordsMissing`;
+CRITICAL - BE CONSERVATIVE:
+- When in doubt, put skills in keywordsMissing rather than keywordsToAddToSkills
+- Do NOT infer architectural patterns unless explicitly described
+- "Using X" is not the same as "expertise in X"
+- Similar terminology does NOT mean same skill`;
 
   const response = callAI(systemPrompt, userMessage);
 
@@ -532,12 +651,26 @@ CRITICAL - NO DUPLICATES:
  * @param {string} additionalContext - Optional user-provided context about unlisted experience
  */
 function tailorResume(resumeData, jobDescription, analysisResults, additionalContext) {
-  const systemPrompt = `You are an expert resume writer who helps candidates present their authentic experience in the best light for specific roles.
+  // Get user profile context if available
+  const profileContext = formatUserProfileForAI();
+
+  const systemPrompt = `You are an expert resume writer with deep technical knowledge who helps candidates present their authentic experience in the best light for specific roles.
+${profileContext ? `
+CANDIDATE BACKGROUND:
+${profileContext}
+
+Use this context to inform your tailoring approach:
+- Match the tone and terminology conventions of their industry
+- For entry-level: emphasize potential, projects, education, eagerness to learn
+- For mid-career: emphasize achievements, growth trajectory, expertise depth
+- For senior/executive: emphasize leadership, strategic impact, business outcomes
+- For career changers: emphasize transferable skills and relevant crossover experience
+- For those returning to workforce: focus on continuous learning and updated skills` : ''}
 
 CRITICAL RULES - AUTHENTICITY IS PARAMOUNT:
 1. NEVER invent or fabricate skills, experiences, or achievements
 2. Do NOT add terms/keywords just because they appear in the job description
-3. Only mention skills/technologies that are EXPLICITLY demonstrated in the resume OR confirmed by the candidate
+3. Only mention skills/technologies that are EXPLICITLY demonstrated in the resume OR CONFIDENTLY confirmed by the candidate
 4. You CAN rephrase bullet points to better highlight relevant aspects THAT ALREADY EXIST
 5. You CAN reorder bullet points to put most relevant first
 6. You CAN adjust language to use similar terminology WHERE THE CANDIDATE DEMONSTRABLY HAS THE SKILL
@@ -545,16 +678,31 @@ CRITICAL RULES - AUTHENTICITY IS PARAMOUNT:
 8. Maintain a natural, human voice - not robotic or overly formal
 9. Keep the candidate's personality and authentic voice
 
+CRITICAL - TECHNICAL PRECISION:
+Be precise about technical terminology. Similar-sounding terms are often DIFFERENT things:
+- "service-based architecture" (microservices/SOA) ≠ "service layer pattern" (code organization)
+- "distributed systems" ≠ "client-server architecture"
+- "CI/CD pipelines" ≠ "automated testing"
+- "event-driven architecture" ≠ "using webhooks"
+- "container orchestration" ≠ "using Docker"
+
+Do NOT substitute one term for another just because they sound similar!
+
 STRICT EVIDENCE REQUIREMENT:
 - Every change must be backed by specific evidence from the resume or candidate's additional context
 - Do NOT add buzzwords like "automation", "scalable", "enterprise" unless the resume shows concrete examples
 - If a job wants "automation experience" but the resume doesn't show it, do NOT add it
-- If the candidate provided additional context about unlisted experience, you CAN use that
 
-SKILL ADDITIONS - ONLY WHEN PROVEN:
+HANDLING CANDIDATE'S ADDITIONAL CONTEXT:
+- If the candidate expresses uncertainty ("I'm not sure if...", "I don't know if this counts", "maybe"), do NOT treat it as confirmation
+- Only use additional context when the candidate clearly confirms having the skill
+- When in doubt, err on the side of NOT adding the skill
+
+SKILL ADDITIONS - EXTREMELY CONSERVATIVE:
 You may suggest adding skills to the Skills section ONLY when:
-- The skill is explicitly mentioned in the resume's experience/projects section, OR
-- The candidate confirmed having the skill in their additional context
+- The EXACT skill term is explicitly mentioned in the resume's experience/projects section, OR
+- The candidate CONFIDENTLY confirms having the skill (not "I think" or "maybe")
+- The terminology is an EXACT or very close match (not just similar-sounding)
 - Never suggest skills just because the job description mentions them
 
 The goal is to help the candidate's REAL qualifications shine through, not to keyword-stuff or create a fake persona.
@@ -566,7 +714,11 @@ You must respond with valid JSON only, no other text.`;
     ? `\nADDITIONAL CONTEXT FROM CANDIDATE:
 The candidate provided this information about experience not fully reflected in their resume:
 "${additionalContext}"
-You CAN use this information to inform changes, as it represents real experience the candidate has.`
+
+IMPORTANT: Parse this carefully:
+- If they express uncertainty ("not sure", "maybe", "I think", "don't know if this counts"), do NOT treat it as confirmation
+- Only use confident statements as evidence for adding skills
+- If the terminology they use is different from the job posting's terminology, they might be describing a DIFFERENT thing`
     : '';
 
   const userMessage = `Tailor this resume for the job below.
@@ -607,7 +759,7 @@ Provide tailored content as JSON with this structure:
     {
       "skill": "<skill/keyword to add>",
       "category": "<suggested category in Skills section>",
-      "justification": "<SPECIFIC quote or reference from resume/context proving the candidate has this skill>"
+      "justification": "<SPECIFIC quote from resume/context with EXACT terminology match>"
     }
   ],
   "reorderSuggestions": [
@@ -621,11 +773,16 @@ Provide tailored content as JSON with this structure:
 
 CRITICAL REQUIREMENTS:
 - For "changes": Every tailored text must be provably true based on the resume or additional context
-- For "skillsToAdd": The justification MUST cite specific text from the resume or additional context. If you can't cite evidence, do NOT suggest the skill.
+- For "skillsToAdd":
+  - The justification MUST cite EXACT text from the resume or additional context
+  - The skill term must EXACTLY match what's demonstrated (not a similar-sounding concept)
+  - If the candidate expressed uncertainty, do NOT add the skill
+  - If you can't cite verbatim evidence, do NOT suggest the skill
+  - Example: "organized business logic into services" does NOT justify adding "service-based architecture" (different concepts!)
 - For "contentToRemove": Only suggest if clearly irrelevant to the target role
 - CRITICAL: The "content" field in contentToRemove must be copied EXACTLY from the resume - character for character.
 
-Quality over quantity. If there's nothing authentic to change, return empty arrays.`;
+Quality over quantity. When in doubt, leave it out. Return empty arrays if nothing meets the strict evidence bar.`;
 
   const response = callAI(systemPrompt, userMessage);
 
@@ -639,6 +796,87 @@ Quality over quantity. If there's nothing authentic to change, return empty arra
   } catch (e) {
     console.error('Failed to parse AI response:', response);
     throw new Error('Failed to parse tailoring results');
+  }
+}
+
+/**
+ * Regenerates a single tailoring suggestion based on user feedback.
+ * Used when the AI's suggestion is inaccurate or embellished.
+ *
+ * @param {string} original - The original text from the resume
+ * @param {string} currentTailored - The current AI-generated suggestion
+ * @param {string} feedback - User's feedback about what to change
+ * @param {string} jobDescription - The job description for context
+ * @returns {Object} Result with new tailored text and reason
+ */
+function rephraseChange(original, currentTailored, feedback, jobDescription) {
+  try {
+    if (!hasApiKey()) {
+      return {
+        success: false,
+        error: 'Please configure your AI API key first.'
+      };
+    }
+
+    const systemPrompt = `You are an expert resume writer helping to refine a resume suggestion based on user feedback.
+
+CRITICAL RULES:
+1. The user has provided feedback about a suggestion that was inaccurate or embellished
+2. You MUST respect the user's feedback completely - if they say they don't have experience with something, DO NOT include it
+3. Only use skills, technologies, and experiences that are provably in the original text
+4. Do NOT add any terms or skills that are not explicitly mentioned in the original resume text
+5. Keep the suggestion authentic to the candidate's actual experience
+6. Maintain a natural, professional tone
+
+You must respond with valid JSON only, no other text.`;
+
+    const userMessage = `The user wants to refine this resume suggestion.
+
+ORIGINAL TEXT FROM RESUME:
+${original}
+
+CURRENT AI SUGGESTION (needs refinement):
+${currentTailored}
+
+USER FEEDBACK - THIS IS CRITICAL, YOU MUST FOLLOW IT:
+${feedback}
+
+JOB DESCRIPTION (for context only - do NOT add skills from here that aren't in the original):
+${jobDescription ? jobDescription.substring(0, 2000) : 'Not provided'}
+
+Based on the user's feedback, provide a revised suggestion. Remember:
+- If the user says they don't have experience with something, DO NOT mention it
+- Only include skills/technologies actually mentioned in the original text
+- The suggestion should be authentic to the candidate's real experience
+
+Respond with JSON:
+{
+  "tailored": "<your revised suggestion that respects the user's feedback>",
+  "reason": "<brief explanation of the improvement and how you addressed the feedback>"
+}`;
+
+    const response = callAI(systemPrompt, userMessage);
+
+    // Parse the JSON response
+    let jsonStr = response.trim();
+    if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+    }
+
+    const result = JSON.parse(jsonStr);
+
+    return {
+      success: true,
+      tailored: result.tailored,
+      reason: result.reason
+    };
+
+  } catch (error) {
+    console.error('Rephrase error:', error);
+    return {
+      success: false,
+      error: error.message || 'Failed to regenerate suggestion'
+    };
   }
 }
 
