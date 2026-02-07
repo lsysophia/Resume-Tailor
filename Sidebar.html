@@ -1051,6 +1051,26 @@
 
     function openAISettings() {
       google.script.run.showApiKeyDialog();
+      // Start polling to detect when settings change (dialog doesn't notify sidebar)
+      startAIProviderPolling();
+    }
+
+    var aiProviderPollInterval = null;
+    function startAIProviderPolling() {
+      if (aiProviderPollInterval) return;
+      // Poll every 2 seconds while dialog might be open
+      aiProviderPollInterval = setInterval(function() {
+        loadAIProvider();
+      }, 2000);
+      // Stop polling after 60 seconds (user probably closed dialog by then)
+      setTimeout(stopAIProviderPolling, 60000);
+    }
+
+    function stopAIProviderPolling() {
+      if (aiProviderPollInterval) {
+        clearInterval(aiProviderPollInterval);
+        aiProviderPollInterval = null;
+      }
     }
 
     function updateThreshold(value) {
