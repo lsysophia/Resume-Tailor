@@ -97,6 +97,149 @@ function formatUserProfileForAI() {
   return context;
 }
 
+// ==================== Basic Analysis (No AI Required) ====================
+
+/**
+ * Common technical skills and keywords to look for in job descriptions.
+ * Organized by category for better matching.
+ */
+const COMMON_SKILLS = {
+  languages: ['javascript', 'typescript', 'python', 'java', 'c++', 'c#', 'go', 'rust', 'ruby', 'php', 'swift', 'kotlin', 'scala', 'r', 'sql', 'html', 'css'],
+  frameworks: ['react', 'angular', 'vue', 'node.js', 'express', 'django', 'flask', 'spring', 'rails', 'laravel', '.net', 'next.js', 'nuxt', 'svelte'],
+  databases: ['postgresql', 'mysql', 'mongodb', 'redis', 'elasticsearch', 'dynamodb', 'oracle', 'sql server', 'sqlite', 'cassandra'],
+  cloud: ['aws', 'azure', 'gcp', 'google cloud', 'heroku', 'digitalocean', 'cloudflare'],
+  devops: ['docker', 'kubernetes', 'jenkins', 'ci/cd', 'terraform', 'ansible', 'github actions', 'gitlab ci'],
+  tools: ['git', 'jira', 'confluence', 'slack', 'figma', 'sketch', 'postman', 'webpack', 'babel'],
+  concepts: ['agile', 'scrum', 'rest api', 'graphql', 'microservices', 'tdd', 'unit testing', 'integration testing'],
+  soft: ['leadership', 'communication', 'teamwork', 'problem-solving', 'analytical', 'detail-oriented', 'self-motivated']
+};
+
+/**
+ * Extracts keywords from job description text.
+ * @param {string} jobDescription - The job description text
+ * @returns {Object} Extracted keywords by category
+ */
+function extractKeywordsFromJob(jobDescription) {
+  const lowerJob = jobDescription.toLowerCase();
+  const found = {
+    skills: [],
+    requirements: [],
+    niceToHave: []
+  };
+
+  // Find all known skills mentioned in the job description
+  for (const category in COMMON_SKILLS) {
+    for (const skill of COMMON_SKILLS[category]) {
+      // Use word boundary matching to avoid partial matches
+      const regex = new RegExp('\\b' + skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+      if (regex.test(lowerJob)) {
+        found.skills.push(skill);
+      }
+    }
+  }
+
+  // Extract years of experience requirements
+  const yearsMatch = lowerJob.match(/(\d+)\+?\s*(?:years?|yrs?)\s*(?:of\s+)?(?:experience|exp)/gi);
+  if (yearsMatch) {
+    found.requirements.push(...yearsMatch.map(m => m.trim()));
+  }
+
+  // Extract degree requirements
+  const degreePatterns = [
+    /bachelor'?s?\s*(?:degree)?/gi,
+    /master'?s?\s*(?:degree)?/gi,
+    /ph\.?d\.?/gi,
+    /computer science/gi,
+    /software engineering/gi
+  ];
+  for (const pattern of degreePatterns) {
+    const matches = lowerJob.match(pattern);
+    if (matches) {
+      found.requirements.push(...matches.map(m => m.trim()));
+    }
+  }
+
+  // Remove duplicates
+  found.skills = [...new Set(found.skills)];
+  found.requirements = [...new Set(found.requirements)];
+
+  return found;
+}
+
+/**
+ * Performs basic resume analysis without AI.
+ * Uses keyword matching to calculate a match score.
+ * @param {Object} resumeData - The parsed resume data
+ * @param {string} jobDescription - The job description text
+ * @returns {Object} Analysis results
+ */
+function analyzeResumeMatchBasic(resumeData, jobDescription) {
+  // Extract all resume text
+  let resumeText = '';
+  for (const section in resumeData.sections) {
+    for (const item of resumeData.sections[section]) {
+      resumeText += ' ' + item.content;
+    }
+  }
+  const lowerResume = resumeText.toLowerCase();
+
+  // Extract keywords from job description
+  const jobKeywords = extractKeywordsFromJob(jobDescription);
+
+  // Match skills against resume
+  const matched = [];
+  const missing = [];
+
+  for (const skill of jobKeywords.skills) {
+    const regex = new RegExp('\\b' + skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+    if (regex.test(lowerResume)) {
+      matched.push(skill);
+    } else {
+      missing.push(skill);
+    }
+  }
+
+  // Calculate match score based on keyword overlap
+  const totalKeywords = jobKeywords.skills.length;
+  let matchScore = 0;
+
+  if (totalKeywords > 0) {
+    matchScore = Math.round((matched.length / totalKeywords) * 100);
+  } else {
+    // If no specific skills found, give a neutral score
+    matchScore = 50;
+  }
+
+  // Cap score between reasonable bounds
+  matchScore = Math.max(20, Math.min(95, matchScore));
+
+  // Extract company and position from job description (basic extraction)
+  const companyMatch = jobDescription.match(/(?:at|@|company[:\s]+|employer[:\s]+)([A-Z][A-Za-z0-9\s&]+?)(?:\.|,|\n|$)/);
+  const positionMatch = jobDescription.match(/(?:position|role|title|job)[:\s]+([A-Za-z\s]+?)(?:\.|,|\n|$)/i) ||
+                        jobDescription.match(/^([A-Z][A-Za-z\s]+(?:Engineer|Developer|Manager|Designer|Analyst|Specialist|Lead|Director))/m);
+
+  return {
+    matchScore: matchScore,
+    summary: `Based on keyword analysis, your resume matches ${matched.length} of ${totalKeywords} key skills mentioned in the job description.`,
+    companyName: companyMatch ? companyMatch[1].trim() : 'Company',
+    positionTitle: positionMatch ? positionMatch[1].trim() : 'Position',
+    strengths: matched.length > 0
+      ? [`Resume contains ${matched.length} relevant keywords`, 'Skills alignment with job requirements']
+      : ['Unable to determine specific strengths without AI analysis'],
+    gaps: missing.length > 0
+      ? [`${missing.length} skills from job description not found in resume`]
+      : [],
+    keywordsMatched: matched,
+    keywordsToAddToSkills: [], // Can't determine without AI
+    keywordsMissing: missing,
+    skillsInferredFromExperience: [], // Can't determine without AI
+    recommendation: matchScore >= 60
+      ? 'Your resume shows keyword alignment with this role. For deeper insights and tailored suggestions, configure an AI provider in settings.'
+      : 'Consider highlighting more relevant skills. For personalized recommendations, configure an AI provider in settings.',
+    isBasicAnalysis: true // Flag to indicate this was done without AI
+  };
+}
+
 /**
  * Gets the minimum match score threshold from user settings.
  */
@@ -154,13 +297,6 @@ function analyzeJob(input) {
       };
     }
 
-    if (!hasApiKey()) {
-      return {
-        success: false,
-        error: 'Please configure your AI API key first (Add-ons > Resume Tailor > AI Settings).'
-      };
-    }
-
     if (!hasTemplate()) {
       return {
         success: false,
@@ -178,8 +314,15 @@ function analyzeJob(input) {
       };
     }
 
-    // Analyze the match (Claude extracts company and position)
-    const analysis = analyzeResumeMatch(resumeData, jobDescription);
+    // Use AI analysis if available, otherwise fall back to basic keyword matching
+    let analysis;
+    if (hasApiKey()) {
+      // Full AI-powered analysis
+      analysis = analyzeResumeMatch(resumeData, jobDescription);
+    } else {
+      // Basic keyword matching (no AI required)
+      analysis = analyzeResumeMatchBasic(resumeData, jobDescription);
+    }
 
     // Get candidate name from resume
     const candidateName = getCandidateName(resumeData.docId);

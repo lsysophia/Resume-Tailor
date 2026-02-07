@@ -1,6 +1,6 @@
 /**
  * AI Provider Integration for Google Apps Script
- * Supports multiple AI providers: Claude, OpenAI, Google Gemini
+ * Supports multiple AI providers: Claude, OpenAI, Google Gemini, DeepSeek
  *
  * This file contains only generic AI infrastructure.
  * Resume-specific AI functions are in ResumeAnalyzer.gs
@@ -26,6 +26,12 @@ const AI_PROVIDERS = {
     apiUrl: 'https://generativelanguage.googleapis.com/v1beta/models/',
     defaultModel: 'gemini-1.5-pro',
     models: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash']
+  },
+  deepseek: {
+    name: 'DeepSeek',
+    apiUrl: 'https://api.deepseek.com/v1/chat/completions',
+    defaultModel: 'deepseek-chat',
+    models: ['deepseek-chat', 'deepseek-reasoner']
   }
 };
 
@@ -95,6 +101,16 @@ function getAISettings() {
   };
 }
 
+/**
+ * Checks if the current AI provider has an API key configured.
+ * @returns {boolean} True if the current provider has an API key set
+ */
+function hasApiKey() {
+  const provider = getAIProvider();
+  const apiKey = getProviderApiKey(provider);
+  return !!apiKey;
+}
+
 // ==================== Generic AI Call ====================
 
 /**
@@ -118,6 +134,8 @@ function callAI(systemPrompt, userMessage) {
       return callOpenAI(systemPrompt, userMessage, apiKey);
     case 'gemini':
       return callGemini(systemPrompt, userMessage, apiKey);
+    case 'deepseek':
+      return callDeepSeek(systemPrompt, userMessage, apiKey);
     default:
       throw new Error('Unknown AI provider: ' + provider);
   }
@@ -240,4 +258,42 @@ function callGemini(systemPrompt, userMessage, apiKey) {
 
   const data = JSON.parse(responseText);
   return data.candidates[0].content.parts[0].text;
+}
+
+/**
+ * Makes a request to DeepSeek API (OpenAI-compatible).
+ */
+function callDeepSeek(systemPrompt, userMessage, apiKey) {
+  const config = AI_PROVIDERS.deepseek;
+
+  const payload = {
+    model: config.defaultModel,
+    max_tokens: 4096,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage }
+    ]
+  };
+
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    headers: {
+      'Authorization': 'Bearer ' + apiKey
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  const response = UrlFetchApp.fetch(config.apiUrl, options);
+  const responseCode = response.getResponseCode();
+  const responseText = response.getContentText();
+
+  if (responseCode !== 200) {
+    const error = JSON.parse(responseText);
+    throw new Error(error.error?.message || `DeepSeek API error: ${responseCode}`);
+  }
+
+  const data = JSON.parse(responseText);
+  return data.choices[0].message.content;
 }

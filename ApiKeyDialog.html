@@ -183,13 +183,13 @@
   <div class="section">
     <label>AI Provider</label>
     <p>Select which AI model to use for resume analysis and tailoring.</p>
-    <div id="provider-list"></div>
+    <div id="provider-list"><span style="color: #5f6368;">Loading...</span></div>
   </div>
 
   <div class="section">
     <label>API Keys</label>
     <p>Enter your API keys. You only need a key for the provider you're using.</p>
-    <div id="api-keys"></div>
+    <div id="api-keys"><span style="color: #5f6368;">Loading...</span></div>
   </div>
 
   <p id="success" class="success"></p>
@@ -210,73 +210,96 @@
     function loadSettings() {
       google.script.run
         .withSuccessHandler(function(result) {
-          settings = result;
-          renderProviders();
-          renderApiKeys();
+          try {
+            settings = result;
+            if (!settings || !settings.providers) {
+              showError('Invalid settings received from server');
+              return;
+            }
+            renderProviders();
+            renderApiKeys();
+          } catch (e) {
+            showError('Error rendering settings: ' + e.message);
+          }
         })
         .withFailureHandler(function(err) {
-          showError('Failed to load settings: ' + err.message);
+          showError('Failed to load settings: ' + (err.message || err));
         })
         .getAISettings();
     }
 
     function renderProviders() {
       const container = document.getElementById('provider-list');
+      if (!container) {
+        showError('Could not find provider list container');
+        return;
+      }
       container.innerHTML = '';
 
-      settings.providers.forEach(provider => {
+      if (!settings.providers || settings.providers.length === 0) {
+        container.innerHTML = '<span style="color: #5f6368;">No providers available</span>';
+        return;
+      }
+
+      settings.providers.forEach(function(provider) {
         const isSelected = provider.id === settings.currentProvider;
         const div = document.createElement('div');
         div.className = 'radio-option';
-        div.innerHTML = `
-          <input type="radio" name="provider" id="provider-${provider.id}"
-                 value="${provider.id}" ${isSelected ? 'checked' : ''}
-                 onchange="selectProvider('${provider.id}')">
-          <label for="provider-${provider.id}" style="margin: 0; cursor: pointer;">
-            ${provider.name}
-            ${provider.hasKey ? '<span style="color: #34a853; font-size: 12px;">(configured)</span>' : ''}
-          </label>
-        `;
+        div.innerHTML =
+          '<input type="radio" name="provider" id="provider-' + provider.id + '"' +
+          ' value="' + provider.id + '"' + (isSelected ? ' checked' : '') +
+          ' onchange="selectProvider(\'' + provider.id + '\')">' +
+          '<label for="provider-' + provider.id + '" style="margin: 0; cursor: pointer;">' +
+          provider.name +
+          (provider.hasKey ? ' <span style="color: #34a853; font-size: 12px;">(configured)</span>' : '') +
+          '</label>';
         container.appendChild(div);
       });
     }
 
     function renderApiKeys() {
       const container = document.getElementById('api-keys');
+      if (!container) {
+        showError('Could not find API keys container');
+        return;
+      }
       container.innerHTML = '';
 
       const providerLinks = {
         claude: 'https://console.anthropic.com/settings/keys',
         openai: 'https://platform.openai.com/api-keys',
-        gemini: 'https://aistudio.google.com/app/apikey'
+        gemini: 'https://aistudio.google.com/app/apikey',
+        deepseek: 'https://platform.deepseek.com/api_keys'
       };
 
-      const keyPrefixes = {
-        claude: 'sk-ant-',
-        openai: 'sk-',
-        gemini: ''
-      };
+      if (!settings.providers || settings.providers.length === 0) {
+        container.innerHTML = '<span style="color: #5f6368;">No providers available</span>';
+        return;
+      }
 
-      settings.providers.forEach(provider => {
+      settings.providers.forEach(function(provider) {
         const card = document.createElement('div');
         card.className = 'provider-card' + (provider.id === settings.currentProvider ? ' selected' : '');
-        card.innerHTML = `
-          <div class="provider-header">
-            <span class="provider-name">${provider.name}</span>
-            <span class="provider-status ${provider.hasKey ? 'configured' : 'not-configured'}">
-              ${provider.hasKey ? 'Configured' : 'Not set'}
-            </span>
-          </div>
-          <div class="key-input-row">
-            <input type="password" id="key-${provider.id}"
-                   placeholder="${provider.hasKey ? '••••••••••••••••' : 'Enter API key...'}"
-                   data-provider="${provider.id}">
-            <button class="btn btn-primary btn-small" onclick="saveKey('${provider.id}')">Save</button>
-          </div>
-          <a href="${providerLinks[provider.id]}" target="_blank" class="api-link">
-            Get API key from ${provider.name.split(' ')[0]}
-          </a>
-        `;
+        const statusClass = provider.hasKey ? 'configured' : 'not-configured';
+        const statusText = provider.hasKey ? 'Configured' : 'Not set';
+        const placeholder = provider.hasKey ? '••••••••••••••••' : 'Enter API key...';
+        const link = providerLinks[provider.id] || '#';
+        const linkName = provider.name.split(' ')[0];
+
+        card.innerHTML =
+          '<div class="provider-header">' +
+          '<span class="provider-name">' + provider.name + '</span>' +
+          '<span class="provider-status ' + statusClass + '">' + statusText + '</span>' +
+          '</div>' +
+          '<div class="key-input-row">' +
+          '<input type="password" id="key-' + provider.id + '"' +
+          ' placeholder="' + placeholder + '"' +
+          ' data-provider="' + provider.id + '">' +
+          '<button class="btn btn-primary btn-small" onclick="saveKey(\'' + provider.id + '\')">Save</button>' +
+          '</div>' +
+          '<a href="' + link + '" target="_blank" class="api-link">' +
+          'Get API key from ' + linkName +
+          '</a>';
         container.appendChild(card);
       });
     }
@@ -313,6 +336,10 @@
       }
       if (providerId === 'openai' && !apiKey.startsWith('sk-')) {
         showError('OpenAI API keys should start with "sk-"');
+        return;
+      }
+      if (providerId === 'deepseek' && !apiKey.startsWith('sk-')) {
+        showError('DeepSeek API keys should start with "sk-"');
         return;
       }
 

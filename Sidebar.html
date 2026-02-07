@@ -1178,6 +1178,26 @@
       // Summary
       document.getElementById('summary').textContent = analysis.summary;
 
+      // Show basic analysis notice if applicable
+      let basicNoticeEl = document.getElementById('basic-analysis-notice');
+      if (!basicNoticeEl) {
+        basicNoticeEl = document.createElement('div');
+        basicNoticeEl.id = 'basic-analysis-notice';
+        basicNoticeEl.style.cssText = 'background: #fef7e0; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; color: #6a4c00;';
+        document.getElementById('summary').after(basicNoticeEl);
+      }
+
+      if (analysis.isBasicAnalysis) {
+        basicNoticeEl.innerHTML = `
+          <strong>Basic Analysis Mode</strong><br>
+          <span style="font-size: 12px;">This analysis uses keyword matching only. For AI-powered insights and resume tailoring,
+          <a href="#" onclick="openAISettings(); return false;" style="color: #6a4c00; text-decoration: underline;">configure an AI provider</a>.</span>
+        `;
+        basicNoticeEl.style.display = 'block';
+      } else {
+        basicNoticeEl.style.display = 'none';
+      }
+
       // Strengths
       document.getElementById('strengths').innerHTML =
         (analysis.strengths || []).map(s => `<span class="chip success">${s}</span>`).join('');
@@ -1218,22 +1238,32 @@
       // Recommendation
       document.getElementById('recommendation').textContent = analysis.recommendation;
 
-      // Tailor button - always enabled, but with different messaging
+      // Tailor button - disabled for basic analysis, enabled otherwise
       const tailorBtn = document.getElementById('tailor-btn');
       const tailorNote = document.getElementById('tailor-note');
 
-      tailorBtn.disabled = false; // Always allow tailoring
-
-      if (result.canTailor) {
-        tailorBtn.classList.remove('btn-warning');
-        tailorBtn.classList.add('btn-success');
-        tailorNote.textContent = 'Great match! Click to create a tailored copy of your resume.';
+      if (analysis.isBasicAnalysis) {
+        // Disable tailoring for basic analysis (requires AI)
+        tailorBtn.disabled = true;
+        tailorBtn.classList.remove('btn-success', 'btn-warning');
+        tailorBtn.style.backgroundColor = '#dadce0';
+        tailorNote.innerHTML = 'Tailoring requires an AI provider. <a href="#" onclick="openAISettings(); return false;" style="color: #1a73e8;">Configure AI Settings</a>';
         tailorNote.style.color = '#5f6368';
       } else {
-        tailorBtn.classList.remove('btn-success');
-        tailorBtn.classList.add('btn-warning');
-        tailorNote.innerHTML = `Below your ${result.minScoreRequired}% threshold, but you can still tailor if you want to apply.`;
-        tailorNote.style.color = '#b05a00';
+        tailorBtn.disabled = false;
+        tailorBtn.style.backgroundColor = '';
+
+        if (result.canTailor) {
+          tailorBtn.classList.remove('btn-warning');
+          tailorBtn.classList.add('btn-success');
+          tailorNote.textContent = 'Great match! Click to create a tailored copy of your resume.';
+          tailorNote.style.color = '#5f6368';
+        } else {
+          tailorBtn.classList.remove('btn-success');
+          tailorBtn.classList.add('btn-warning');
+          tailorNote.innerHTML = `Below your ${result.minScoreRequired}% threshold, but you can still tailor if you want to apply.`;
+          tailorNote.style.color = '#b05a00';
+        }
       }
 
       document.getElementById('results').classList.add('show');

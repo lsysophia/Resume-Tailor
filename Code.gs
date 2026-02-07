@@ -11,13 +11,16 @@
 function onOpen() {
   DocumentApp.getUi()
     .createAddonMenu()
-    .addItem('Open Resume Tailor', 'showSidebar')
+    .addItem("Open Resume Tailor", "showSidebar")
     .addSeparator()
-    .addSubMenu(DocumentApp.getUi().createMenu('Set Template')
-      .addItem('Use Current Document', 'setCurrentDocAsTemplate')
-      .addItem('Select from Drive...', 'showTemplatePickerDialog'))
-    .addItem('AI Settings', 'showApiKeyDialog')
-    .addItem('Help', 'showHelp')
+    .addSubMenu(
+      DocumentApp.getUi()
+        .createMenu("Set Template")
+        .addItem("Use Current Document", "setCurrentDocAsTemplate")
+        .addItem("Select from Drive...", "showTemplatePickerDialog"),
+    )
+    .addItem("AI Settings", "showApiKeyDialog")
+    .addItem("Help", "showHelp")
     .addToUi();
 }
 
@@ -41,8 +44,8 @@ function onHomepage() {
  * Shows the main sidebar.
  */
 function showSidebar() {
-  const html = HtmlService.createHtmlOutputFromFile('Sidebar')
-    .setTitle('Resume Tailor')
+  const html = HtmlService.createHtmlOutputFromFile("Sidebar")
+    .setTitle("Resume Tailor")
     .setWidth(400);
   DocumentApp.getUi().showSidebar(html);
 }
@@ -51,20 +54,20 @@ function showSidebar() {
  * Shows the AI settings dialog.
  */
 function showApiKeyDialog() {
-  const html = HtmlService.createHtmlOutputFromFile('ApiKeyDialog')
+  const html = HtmlService.createHtmlOutputFromFile("ApiKeyDialog")
     .setWidth(450)
     .setHeight(480);
-  DocumentApp.getUi().showModalDialog(html, 'AI Settings');
+  DocumentApp.getUi().showModalDialog(html, "AI Settings");
 }
 
 /**
  * Shows the template picker dialog.
  */
 function showTemplatePickerDialog() {
-  const html = HtmlService.createHtmlOutputFromFile('TemplatePicker')
+  const html = HtmlService.createHtmlOutputFromFile("TemplatePicker")
     .setWidth(500)
     .setHeight(450);
-  DocumentApp.getUi().showModalDialog(html, 'Select Resume Template');
+  DocumentApp.getUi().showModalDialog(html, "Select Resume Template");
 }
 
 /**
@@ -74,7 +77,7 @@ function showTemplatePickerDialog() {
 function getRecentDocs() {
   const docs = [];
   const files = DriveApp.searchFiles(
-    "mimeType = 'application/vnd.google-apps.document' and trashed = false"
+    "mimeType = 'application/vnd.google-apps.document' and trashed = false",
   );
 
   let count = 0;
@@ -86,7 +89,7 @@ function getRecentDocs() {
       id: file.getId(),
       name: file.getName(),
       modifiedDate: file.getLastUpdated().toLocaleDateString(),
-      url: file.getUrl()
+      url: file.getUrl(),
     });
     count++;
   }
@@ -113,7 +116,7 @@ function searchDocs(query) {
       id: file.getId(),
       name: file.getName(),
       modifiedDate: file.getLastUpdated().toLocaleDateString(),
-      url: file.getUrl()
+      url: file.getUrl(),
     });
     count++;
   }
@@ -132,19 +135,19 @@ function setDocAsTemplate(docId) {
     const docName = file.getName();
 
     const userProperties = PropertiesService.getUserProperties();
-    userProperties.setProperty('TEMPLATE_RESUME_ID', docId);
-    userProperties.setProperty('TEMPLATE_RESUME_NAME', docName);
+    userProperties.setProperty("TEMPLATE_RESUME_ID", docId);
+    userProperties.setProperty("TEMPLATE_RESUME_NAME", docName);
 
     return {
       success: true,
       docId: docId,
       docName: docName,
-      message: `"${docName}" is now set as your template.`
+      message: `"${docName}" is now set as your template.`,
     };
   } catch (e) {
     return {
       success: false,
-      error: 'Could not access the selected document: ' + e.message
+      error: "Could not access the selected document: " + e.message,
     };
   }
 }
@@ -155,47 +158,17 @@ function setDocAsTemplate(docId) {
 function showHelp() {
   const ui = DocumentApp.getUi();
   ui.alert(
-    'Resume Tailor Help',
-    'How to use Resume Tailor:\n\n' +
-    '1. Configure your AI provider in "AI Settings" (Claude, GPT, or Gemini)\n\n' +
-    '2. Open your master resume and click "Set This Doc as Template"\n\n' +
-    '3. Click "Open Resume Tailor" and paste a job description or URL\n\n' +
-    '4. Click "Analyze" to see your match score and gaps\n\n' +
-    '5. Click "Create Tailored Copy" to generate suggestions\n\n' +
-    '6. Review changes in the document and accept/reject each one\n\n' +
-    'Note: Your original resume is NEVER modified - we always work on a copy!',
-    ui.ButtonSet.OK
+    "Resume Tailor Help",
+    "How to use Resume Tailor:\n\n" +
+      '1. Configure your AI provider in "AI Settings" (Claude, GPT, or Gemini)\n\n' +
+      '2. Open your default resume and click "Set This Doc as Template"\n\n' +
+      '3. Click "Open Resume Tailor" and paste a job description or URL\n\n' +
+      '4. Click "Analyze" to see your match score and gaps\n\n' +
+      '5. Click "Create Tailored Copy" to generate suggestions\n\n' +
+      "6. Review changes in the document and accept/reject each one\n\n" +
+      "Note: Your original resume is NEVER modified - we always work on a copy!",
+    ui.ButtonSet.OK,
   );
-}
-
-// ==================== API Key Management ====================
-
-/**
- * Saves the Claude API key to user properties (legacy function).
- * New code should use saveProviderApiKey() from Claude.gs
- */
-function saveApiKey(apiKey) {
-  const userProperties = PropertiesService.getUserProperties();
-  userProperties.setProperty('CLAUDE_API_KEY', apiKey);
-  userProperties.setProperty('API_KEY_CLAUDE', apiKey);
-  return { success: true, message: 'API key saved successfully!' };
-}
-
-/**
- * Gets the Claude API key from user properties (legacy function).
- * New code should use getProviderApiKey() from Claude.gs
- */
-function getApiKey() {
-  const userProperties = PropertiesService.getUserProperties();
-  return userProperties.getProperty('CLAUDE_API_KEY') || '';
-}
-
-/**
- * Checks if API key is configured for the current AI provider.
- */
-function hasApiKey() {
-  const provider = getAIProvider();
-  return !!getProviderApiKey(provider);
 }
 
 // ==================== Template Resume Management ====================
@@ -209,15 +182,15 @@ function setCurrentDocAsTemplate() {
   const docName = doc.getName();
 
   const userProperties = PropertiesService.getUserProperties();
-  userProperties.setProperty('TEMPLATE_RESUME_ID', docId);
-  userProperties.setProperty('TEMPLATE_RESUME_NAME', docName);
+  userProperties.setProperty("TEMPLATE_RESUME_ID", docId);
+  userProperties.setProperty("TEMPLATE_RESUME_NAME", docName);
 
   const ui = DocumentApp.getUi();
   ui.alert(
-    'Template Set',
+    "Template Set",
     `"${docName}" is now set as your master resume template.\n\n` +
-    'When you tailor your resume for a job, a copy will be created and the original will remain unchanged.',
-    ui.ButtonSet.OK
+      "When you tailor your resume for a job, a copy will be created and the original will remain unchanged.",
+    ui.ButtonSet.OK,
   );
 
   return { success: true, docId: docId, docName: docName };
@@ -228,8 +201,8 @@ function setCurrentDocAsTemplate() {
  */
 function getTemplateInfo() {
   const userProperties = PropertiesService.getUserProperties();
-  const templateId = userProperties.getProperty('TEMPLATE_RESUME_ID');
-  const templateName = userProperties.getProperty('TEMPLATE_RESUME_NAME');
+  const templateId = userProperties.getProperty("TEMPLATE_RESUME_ID");
+  const templateName = userProperties.getProperty("TEMPLATE_RESUME_NAME");
 
   if (!templateId) {
     return { hasTemplate: false };
@@ -241,12 +214,12 @@ function getTemplateInfo() {
     return {
       hasTemplate: true,
       templateId: templateId,
-      templateName: file.getName() // Get current name in case it was renamed
+      templateName: file.getName(), // Get current name in case it was renamed
     };
   } catch (e) {
     // Template no longer accessible
-    userProperties.deleteProperty('TEMPLATE_RESUME_ID');
-    userProperties.deleteProperty('TEMPLATE_RESUME_NAME');
+    userProperties.deleteProperty("TEMPLATE_RESUME_ID");
+    userProperties.deleteProperty("TEMPLATE_RESUME_NAME");
     return { hasTemplate: false };
   }
 }
@@ -269,7 +242,7 @@ function getResumeData(docId) {
   if (!docId) {
     const templateInfo = getTemplateInfo();
     if (!templateInfo.hasTemplate) {
-      throw new Error('No template resume set. Please set a template first.');
+      throw new Error("No template resume set. Please set a template first.");
     }
     docId = templateInfo.templateId;
   }
@@ -281,10 +254,10 @@ function getResumeData(docId) {
     docId: docId,
     docName: doc.getName(),
     sections: {},
-    elements: [] // Store element details for later modification
+    elements: [], // Store element details for later modification
   };
 
-  let currentSection = 'Header';
+  let currentSection = "Header";
   resume.sections[currentSection] = [];
 
   const numChildren = body.getNumChildren();
@@ -299,11 +272,12 @@ function getResumeData(docId) {
       const heading = para.getHeading();
 
       // Check if this is a section header
-      if (text && (
-        heading !== DocumentApp.ParagraphHeading.NORMAL ||
-        text === text.toUpperCase() ||
-        isSectionHeader(text)
-      )) {
+      if (
+        text &&
+        (heading !== DocumentApp.ParagraphHeading.NORMAL ||
+          text === text.toUpperCase() ||
+          isSectionHeader(text))
+      ) {
         currentSection = normalizeSectionName(text);
         if (!resume.sections[currentSection]) {
           resume.sections[currentSection] = [];
@@ -311,56 +285,54 @@ function getResumeData(docId) {
       } else if (text) {
         // Regular content
         resume.sections[currentSection].push({
-          type: 'paragraph',
+          type: "paragraph",
           index: i,
-          content: text
+          content: text,
         });
       }
 
       resume.elements.push({
-        type: 'paragraph',
+        type: "paragraph",
         index: i,
         section: currentSection,
         content: text,
-        heading: heading.toString()
+        heading: heading.toString(),
       });
-
     } else if (elementType === DocumentApp.ElementType.LIST_ITEM) {
       const listItem = element.asListItem();
       const text = listItem.getText().trim();
 
       if (text) {
         resume.sections[currentSection].push({
-          type: 'listItem',
+          type: "listItem",
           index: i,
           content: text,
-          nestingLevel: listItem.getNestingLevel()
+          nestingLevel: listItem.getNestingLevel(),
         });
       }
 
       resume.elements.push({
-        type: 'listItem',
+        type: "listItem",
         index: i,
         section: currentSection,
         content: text,
-        nestingLevel: listItem.getNestingLevel()
+        nestingLevel: listItem.getNestingLevel(),
       });
-
     } else if (elementType === DocumentApp.ElementType.TABLE) {
       const table = element.asTable();
       const tableContent = extractTableContent(table);
 
       resume.sections[currentSection].push({
-        type: 'table',
+        type: "table",
         index: i,
-        content: tableContent
+        content: tableContent,
       });
 
       resume.elements.push({
-        type: 'table',
+        type: "table",
         index: i,
         section: currentSection,
-        content: tableContent
+        content: tableContent,
       });
     }
   }
@@ -376,29 +348,53 @@ function isSectionHeader(text) {
 
   // Common section header keywords
   const sectionKeywords = [
-    'SUMMARY', 'OBJECTIVE', 'PROFILE', 'ABOUT',
-    'EXPERIENCE', 'EMPLOYMENT', 'WORK HISTORY', 'CAREER',
-    'EDUCATION', 'ACADEMIC', 'QUALIFICATIONS',
-    'SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES',
-    'PROJECTS', 'PORTFOLIO',
-    'CERTIFICATIONS', 'CERTIFICATES', 'LICENSES', 'CREDENTIALS',
-    'AWARDS', 'HONORS', 'ACHIEVEMENTS', 'ACCOMPLISHMENTS',
-    'PUBLICATIONS', 'PRESENTATIONS', 'PAPERS',
-    'VOLUNTEER', 'COMMUNITY', 'LEADERSHIP',
-    'LANGUAGES',
-    'INTERESTS', 'HOBBIES', 'ACTIVITIES',
-    'REFERENCES'
+    "SUMMARY",
+    "OBJECTIVE",
+    "PROFILE",
+    "ABOUT",
+    "EXPERIENCE",
+    "EMPLOYMENT",
+    "WORK HISTORY",
+    "CAREER",
+    "EDUCATION",
+    "ACADEMIC",
+    "QUALIFICATIONS",
+    "SKILLS",
+    "COMPETENCIES",
+    "EXPERTISE",
+    "TECHNOLOGIES",
+    "PROJECTS",
+    "PORTFOLIO",
+    "CERTIFICATIONS",
+    "CERTIFICATES",
+    "LICENSES",
+    "CREDENTIALS",
+    "AWARDS",
+    "HONORS",
+    "ACHIEVEMENTS",
+    "ACCOMPLISHMENTS",
+    "PUBLICATIONS",
+    "PRESENTATIONS",
+    "PAPERS",
+    "VOLUNTEER",
+    "COMMUNITY",
+    "LEADERSHIP",
+    "LANGUAGES",
+    "INTERESTS",
+    "HOBBIES",
+    "ACTIVITIES",
+    "REFERENCES",
   ];
 
   // Check if the text contains any section keyword
-  return sectionKeywords.some(keyword => normalizedText.includes(keyword));
+  return sectionKeywords.some((keyword) => normalizedText.includes(keyword));
 }
 
 /**
  * Normalizes section names for consistency.
  */
 function normalizeSectionName(text) {
-  return text.replace(/[:\-]/g, '').trim();
+  return text.replace(/[:\-]/g, "").trim();
 }
 
 /**
@@ -416,10 +412,10 @@ function extractTableContent(table) {
     for (let c = 0; c < numCells; c++) {
       cells.push(row.getCell(c).getText().trim());
     }
-    rows.push(cells.join(' | '));
+    rows.push(cells.join(" | "));
   }
 
-  return rows.join('\n');
+  return rows.join("\n");
 }
 
 /**
@@ -434,7 +430,7 @@ function addSkillToTemplate(skill) {
   try {
     const templateInfo = getTemplateInfo();
     if (!templateInfo.hasTemplate) {
-      return { success: false, error: 'No template resume set.' };
+      return { success: false, error: "No template resume set." };
     }
 
     // Check if AI is configured - if so, use intelligent placement
@@ -445,7 +441,7 @@ function addSkillToTemplate(skill) {
       return addSkillSimple(skill, templateInfo.templateId);
     }
   } catch (error) {
-    console.error('Error adding skill:', error);
+    console.error("Error adding skill:", error);
     return { success: false, error: error.message };
   }
 }
@@ -462,14 +458,14 @@ function addSkillToTemplate(skill) {
 function addSkillToCopy(skill, copyId) {
   try {
     if (!copyId) {
-      return { success: false, error: 'No document ID provided.' };
+      return { success: false, error: "No document ID provided." };
     }
 
     // Verify the document exists
     try {
       DocumentApp.openById(copyId);
     } catch (e) {
-      return { success: false, error: 'Could not access the tailored copy.' };
+      return { success: false, error: "Could not access the tailored copy." };
     }
 
     // Check if AI is configured - if so, use intelligent placement
@@ -480,7 +476,7 @@ function addSkillToCopy(skill, copyId) {
       return addSkillSimple(skill, copyId);
     }
   } catch (error) {
-    console.error('Error adding skill to copy:', error);
+    console.error("Error adding skill to copy:", error);
     return { success: false, error: error.message };
   }
 }
@@ -496,19 +492,19 @@ function addSkillToCopy(skill, copyId) {
 function removeSkillFromCopy(skill, copyId) {
   try {
     if (!copyId) {
-      return { success: false, error: 'No document ID provided.' };
+      return { success: false, error: "No document ID provided." };
     }
 
     // Verify the document exists
     try {
       DocumentApp.openById(copyId);
     } catch (e) {
-      return { success: false, error: 'Could not access the tailored copy.' };
+      return { success: false, error: "Could not access the tailored copy." };
     }
 
     return removeSkillFromDocument(skill, copyId);
   } catch (error) {
-    console.error('Error removing skill from copy:', error);
+    console.error("Error removing skill from copy:", error);
     return { success: false, error: error.message };
   }
 }
@@ -524,12 +520,12 @@ function removeSkillFromTemplate(skill) {
   try {
     const templateInfo = getTemplateInfo();
     if (!templateInfo.hasTemplate) {
-      return { success: false, error: 'No template resume set.' };
+      return { success: false, error: "No template resume set." };
     }
 
     return removeSkillFromDocument(skill, templateInfo.templateId);
   } catch (error) {
-    console.error('Error removing skill from template:', error);
+    console.error("Error removing skill from template:", error);
     return { success: false, error: error.message };
   }
 }
@@ -547,13 +543,22 @@ function removeSkillFromDocument(skill, docId) {
 
     // Search for the skill in the Skills section
     const skillsText = getSkillsSectionText(body);
-    if (!skillsText || !skillsText.toLowerCase().includes(skill.toLowerCase())) {
+    if (
+      !skillsText ||
+      !skillsText.toLowerCase().includes(skill.toLowerCase())
+    ) {
       doc.saveAndClose();
-      return { success: false, error: 'Skill not found in Skills section.' };
+      return { success: false, error: "Skill not found in Skills section." };
     }
 
     // Find and remove the skill from paragraphs in Skills section
-    const skillsSectionNames = ['SKILLS', 'TECHNICAL SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES'];
+    const skillsSectionNames = [
+      "SKILLS",
+      "TECHNICAL SKILLS",
+      "COMPETENCIES",
+      "EXPERTISE",
+      "TECHNOLOGIES",
+    ];
     const numChildren = body.getNumChildren();
     let inSkillsSection = false;
 
@@ -567,15 +572,20 @@ function removeSkillFromDocument(skill, docId) {
         const upperText = text.toUpperCase();
 
         // Check if entering Skills section
-        if (skillsSectionNames.some(name => upperText.includes(name))) {
+        if (skillsSectionNames.some((name) => upperText.includes(name))) {
           inSkillsSection = true;
         }
 
         // Check if leaving Skills section (but not if it's the Skills header itself)
-        if (inSkillsSection && text.trim() &&
-            !skillsSectionNames.some(name => upperText.includes(name)) &&
-            (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
-             (text.trim() === text.trim().toUpperCase() && text.trim().length > 3 && !text.includes(':')))) {
+        if (
+          inSkillsSection &&
+          text.trim() &&
+          !skillsSectionNames.some((name) => upperText.includes(name)) &&
+          (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+            (text.trim() === text.trim().toUpperCase() &&
+              text.trim().length > 3 &&
+              !text.includes(":")))
+        ) {
           break;
         }
 
@@ -584,13 +594,19 @@ function removeSkillFromDocument(skill, docId) {
           const result = removeSkillFromText(para, skill);
           if (result.removed) {
             doc.saveAndClose();
-            return { success: true, message: `Removed "${skill}" from Skills section.` };
+            return {
+              success: true,
+              message: `Removed "${skill}" from Skills section.`,
+            };
           }
         }
       }
 
       // Also check list items in Skills section
-      if (inSkillsSection && elementType === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        inSkillsSection &&
+        elementType === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const listItem = element.asListItem();
         const itemText = listItem.getText();
 
@@ -599,13 +615,19 @@ function removeSkillFromDocument(skill, docId) {
           if (itemText.trim().toLowerCase() === skill.toLowerCase()) {
             listItem.removeFromParent();
             doc.saveAndClose();
-            return { success: true, message: `Removed "${skill}" from Skills section.` };
+            return {
+              success: true,
+              message: `Removed "${skill}" from Skills section.`,
+            };
           }
           // Otherwise try to remove just the skill text
           const result = removeSkillFromText(listItem, skill);
           if (result.removed) {
             doc.saveAndClose();
-            return { success: true, message: `Removed "${skill}" from Skills section.` };
+            return {
+              success: true,
+              message: `Removed "${skill}" from Skills section.`,
+            };
           }
         }
       }
@@ -623,7 +645,10 @@ function removeSkillFromDocument(skill, docId) {
               const result = removeSkillFromTableCell(cell, skill);
               if (result.removed) {
                 doc.saveAndClose();
-                return { success: true, message: `Removed "${skill}" from Skills section.` };
+                return {
+                  success: true,
+                  message: `Removed "${skill}" from Skills section.`,
+                };
               }
             }
           }
@@ -632,10 +657,12 @@ function removeSkillFromDocument(skill, docId) {
     }
 
     doc.saveAndClose();
-    return { success: false, error: 'Could not remove skill. It may have been modified.' };
-
+    return {
+      success: false,
+      error: "Could not remove skill. It may have been modified.",
+    };
   } catch (error) {
-    console.error('Error removing skill from document:', error);
+    console.error("Error removing skill from document:", error);
     return { success: false, error: error.message };
   }
 }
@@ -653,9 +680,12 @@ function containsSkillAsWord(text, skill) {
   let idx = lowerText.indexOf(lowerSkill);
   while (idx >= 0) {
     // Check character before
-    const charBefore = idx > 0 ? lowerText[idx - 1] : ' ';
+    const charBefore = idx > 0 ? lowerText[idx - 1] : " ";
     // Check character after
-    const charAfter = idx + lowerSkill.length < lowerText.length ? lowerText[idx + lowerSkill.length] : ' ';
+    const charAfter =
+      idx + lowerSkill.length < lowerText.length
+        ? lowerText[idx + lowerSkill.length]
+        : " ";
 
     // Skill is a whole word if surrounded by non-alphanumeric chars
     const isWordBoundaryBefore = !/[a-z0-9]/.test(charBefore);
@@ -684,8 +714,11 @@ function findSkillAsWord(text, skill) {
 
   let idx = lowerText.indexOf(lowerSkill);
   while (idx >= 0) {
-    const charBefore = idx > 0 ? lowerText[idx - 1] : ' ';
-    const charAfter = idx + lowerSkill.length < lowerText.length ? lowerText[idx + lowerSkill.length] : ' ';
+    const charBefore = idx > 0 ? lowerText[idx - 1] : " ";
+    const charAfter =
+      idx + lowerSkill.length < lowerText.length
+        ? lowerText[idx + lowerSkill.length]
+        : " ";
 
     const isWordBoundaryBefore = !/[a-z0-9]/.test(charBefore);
     const isWordBoundaryAfter = !/[a-z0-9]/.test(charAfter);
@@ -721,21 +754,21 @@ function removeSkillFromText(element, skill) {
   const after = text.substring(endIdx, Math.min(text.length, endIdx + 3));
 
   // Common separators: ", " " | " " • " "; "
-  if (before.endsWith(', ')) {
+  if (before.endsWith(", ")) {
     startIdx = idx - 2;
-  } else if (before.endsWith(' | ')) {
+  } else if (before.endsWith(" | ")) {
     startIdx = idx - 3;
-  } else if (before.endsWith(' • ')) {
+  } else if (before.endsWith(" • ")) {
     startIdx = idx - 3;
-  } else if (before.endsWith('; ')) {
+  } else if (before.endsWith("; ")) {
     startIdx = idx - 2;
-  } else if (after.startsWith(', ')) {
+  } else if (after.startsWith(", ")) {
     endIdx = idx + skill.length + 2;
-  } else if (after.startsWith(' | ')) {
+  } else if (after.startsWith(" | ")) {
     endIdx = idx + skill.length + 3;
-  } else if (after.startsWith(' • ')) {
+  } else if (after.startsWith(" • ")) {
     endIdx = idx + skill.length + 3;
-  } else if (after.startsWith('; ')) {
+  } else if (after.startsWith("; ")) {
     endIdx = idx + skill.length + 2;
   }
 
@@ -762,17 +795,17 @@ function removeSkillFromTableCell(cell, skill) {
   const before = text.substring(Math.max(0, idx - 3), idx);
   const after = text.substring(endIdx, Math.min(text.length, endIdx + 3));
 
-  if (before.endsWith(', ')) {
+  if (before.endsWith(", ")) {
     startIdx = idx - 2;
-  } else if (before.endsWith(' | ')) {
+  } else if (before.endsWith(" | ")) {
     startIdx = idx - 3;
-  } else if (before.endsWith(' • ')) {
+  } else if (before.endsWith(" • ")) {
     startIdx = idx - 3;
-  } else if (after.startsWith(', ')) {
+  } else if (after.startsWith(", ")) {
     endIdx = idx + skill.length + 2;
-  } else if (after.startsWith(' | ')) {
+  } else if (after.startsWith(" | ")) {
     endIdx = idx + skill.length + 3;
-  } else if (after.startsWith(' • ')) {
+  } else if (after.startsWith(" • ")) {
     endIdx = idx + skill.length + 3;
   }
 
@@ -804,7 +837,10 @@ function addSkillWithAIPlacement(skill, docId) {
     const skillsText = getSkillsSectionText(body);
     if (skillsText && skillsText.toLowerCase().includes(skill.toLowerCase())) {
       doc.saveAndClose();
-      return { success: false, error: 'This skill is already in your Skills section.' };
+      return {
+        success: false,
+        error: "This skill is already in your Skills section.",
+      };
     }
 
     // Find the target category in the document
@@ -818,14 +854,17 @@ function addSkillWithAIPlacement(skill, docId) {
 
         // Check if this paragraph contains the target category name
         // Match category names like "Programming Languages:", "Integration & Services:", etc.
-        if (text && (
-          text.toLowerCase().includes(targetCategory.toLowerCase()) ||
-          normalizeForComparison(text).includes(normalizeForComparison(targetCategory))
-        )) {
+        if (
+          text &&
+          (text.toLowerCase().includes(targetCategory.toLowerCase()) ||
+            normalizeForComparison(text).includes(
+              normalizeForComparison(targetCategory),
+            ))
+        ) {
           targetIndex = i;
 
           // Check if this line already contains skills (category: skill1, skill2, ...)
-          if (text.includes(':')) {
+          if (text.includes(":")) {
             targetElement = element.asParagraph();
           }
           break;
@@ -839,10 +878,10 @@ function addSkillWithAIPlacement(skill, docId) {
       const currentText = para.getText();
 
       // Detect separator
-      let separator = ', ';
-      if (currentText.includes(' | ')) separator = ' | ';
-      else if (currentText.includes(' • ')) separator = ' • ';
-      else if (currentText.includes('; ')) separator = '; ';
+      let separator = ", ";
+      if (currentText.includes(" | ")) separator = " | ";
+      else if (currentText.includes(" • ")) separator = " • ";
+      else if (currentText.includes("; ")) separator = "; ";
 
       // Append the skill
       para.editAsText().appendText(separator + skill);
@@ -850,14 +889,18 @@ function addSkillWithAIPlacement(skill, docId) {
       return {
         success: true,
         message: `Added "${skill}" to ${targetCategory}.`,
-        category: targetCategory
+        category: targetCategory,
       };
     }
 
     // If we found the category header but skills are on the next line(s)
     if (targetIndex !== -1) {
       // Look at the next element(s) for the skills content
-      for (let i = targetIndex + 1; i < Math.min(targetIndex + 5, numChildren); i++) {
+      for (
+        let i = targetIndex + 1;
+        i < Math.min(targetIndex + 5, numChildren);
+        i++
+      ) {
         const element = body.getChild(i);
         const elementType = element.getType();
 
@@ -867,29 +910,30 @@ function addSkillWithAIPlacement(skill, docId) {
           const text = para.getText().trim();
 
           // Check if this is a new category or section header
-          if (text && (
-            para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
-            text === text.toUpperCase() ||
-            isSectionHeader(text) ||
-            (text.includes(':') && text.split(':')[1].trim().length < 3)
-          )) {
+          if (
+            text &&
+            (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+              text === text.toUpperCase() ||
+              isSectionHeader(text) ||
+              (text.includes(":") && text.split(":")[1].trim().length < 3))
+          ) {
             break;
           }
 
           // This looks like a skills content line
           if (text && text.length > 5) {
             const currentText = para.getText();
-            let separator = ', ';
-            if (currentText.includes(' | ')) separator = ' | ';
-            else if (currentText.includes(' • ')) separator = ' • ';
-            else if (currentText.includes('; ')) separator = '; ';
+            let separator = ", ";
+            if (currentText.includes(" | ")) separator = " | ";
+            else if (currentText.includes(" • ")) separator = " • ";
+            else if (currentText.includes("; ")) separator = "; ";
 
             para.editAsText().appendText(separator + skill);
             doc.saveAndClose();
             return {
               success: true,
               message: `Added "${skill}" to ${targetCategory}.`,
-              category: targetCategory
+              category: targetCategory,
             };
           }
         }
@@ -904,7 +948,7 @@ function addSkillWithAIPlacement(skill, docId) {
           return {
             success: true,
             message: `Added "${skill}" to ${targetCategory}.`,
-            category: targetCategory
+            category: targetCategory,
           };
         }
 
@@ -916,7 +960,7 @@ function addSkillWithAIPlacement(skill, docId) {
             return {
               success: true,
               message: `Added "${skill}" to ${targetCategory}.`,
-              category: targetCategory
+              category: targetCategory,
             };
           }
         }
@@ -924,28 +968,39 @@ function addSkillWithAIPlacement(skill, docId) {
     }
 
     // Fallback: try alternative categories from AI suggestion
-    if (categoryInfo.alternativeCategories && categoryInfo.alternativeCategories.length > 0) {
+    if (
+      categoryInfo.alternativeCategories &&
+      categoryInfo.alternativeCategories.length > 0
+    ) {
       for (const altCategory of categoryInfo.alternativeCategories) {
         for (let i = 0; i < numChildren; i++) {
           const element = body.getChild(i);
           if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
             const text = element.asParagraph().getText().trim();
-            if (text && normalizeForComparison(text).includes(normalizeForComparison(altCategory))) {
+            if (
+              text &&
+              normalizeForComparison(text).includes(
+                normalizeForComparison(altCategory),
+              )
+            ) {
               // Found alternative category, add skill there
               const para = element.asParagraph();
               const currentText = para.getText();
 
-              if (currentText.includes(':') && currentText.split(':')[1].trim().length > 3) {
-                let separator = ', ';
-                if (currentText.includes(' | ')) separator = ' | ';
-                else if (currentText.includes(' • ')) separator = ' • ';
+              if (
+                currentText.includes(":") &&
+                currentText.split(":")[1].trim().length > 3
+              ) {
+                let separator = ", ";
+                if (currentText.includes(" | ")) separator = " | ";
+                else if (currentText.includes(" • ")) separator = " • ";
 
                 para.editAsText().appendText(separator + skill);
                 doc.saveAndClose();
                 return {
                   success: true,
                   message: `Added "${skill}" to ${altCategory}.`,
-                  category: altCategory
+                  category: altCategory,
                 };
               }
             }
@@ -957,9 +1012,8 @@ function addSkillWithAIPlacement(skill, docId) {
     // Final fallback: use simple placement
     doc.saveAndClose();
     return addSkillSimple(skill, docId);
-
   } catch (error) {
-    console.error('Error in AI skill placement:', error);
+    console.error("Error in AI skill placement:", error);
     // Fallback to simple placement on error
     return addSkillSimple(skill, docId);
   }
@@ -977,9 +1031,9 @@ function addSkillToTable(table, skill) {
       const cell = row.getCell(c);
       const cellText = cell.getText().trim();
       if (cellText && cellText.length > 5) {
-        let separator = ', ';
-        if (cellText.includes(' | ')) separator = ' | ';
-        else if (cellText.includes(' • ')) separator = ' • ';
+        let separator = ", ";
+        if (cellText.includes(" | ")) separator = " | ";
+        else if (cellText.includes(" • ")) separator = " • ";
         cell.editAsText().appendText(separator + skill);
         return { added: true };
       }
@@ -992,7 +1046,11 @@ function addSkillToTable(table, skill) {
  * Normalizes text for comparison (removes punctuation, extra spaces, lowercases).
  */
 function normalizeForComparison(text) {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -1002,10 +1060,16 @@ function normalizeForComparison(text) {
  * @returns {string} Text content of the Skills section, or empty string if not found
  */
 function getSkillsSectionText(body) {
-  const skillsSectionNames = ['SKILLS', 'TECHNICAL SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES'];
+  const skillsSectionNames = [
+    "SKILLS",
+    "TECHNICAL SKILLS",
+    "COMPETENCIES",
+    "EXPERTISE",
+    "TECHNOLOGIES",
+  ];
   const numChildren = body.getNumChildren();
   let inSkillsSection = false;
-  let skillsText = '';
+  let skillsText = "";
 
   for (let i = 0; i < numChildren; i++) {
     const element = body.getChild(i);
@@ -1017,35 +1081,39 @@ function getSkillsSectionText(body) {
       const upperText = text.toUpperCase();
 
       // Check if this is a Skills section header
-      if (skillsSectionNames.some(name => upperText.includes(name))) {
+      if (skillsSectionNames.some((name) => upperText.includes(name))) {
         inSkillsSection = true;
-        skillsText += text + '\n';
+        skillsText += text + "\n";
         continue;
       }
 
       // Check if we've hit a new section (end of Skills)
-      if (inSkillsSection && text && (
-        para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
-        (text === text.toUpperCase() && text.length > 3 && !text.includes(':')) ||
-        isSectionHeader(text)
-      )) {
+      if (
+        inSkillsSection &&
+        text &&
+        (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+          (text === text.toUpperCase() &&
+            text.length > 3 &&
+            !text.includes(":")) ||
+          isSectionHeader(text))
+      ) {
         break; // End of skills section
       }
 
       // Collect skills content
       if (inSkillsSection && text) {
-        skillsText += text + '\n';
+        skillsText += text + "\n";
       }
     } else if (inSkillsSection) {
       // Also collect text from list items and tables in skills section
       if (elementType === DocumentApp.ElementType.LIST_ITEM) {
-        skillsText += element.asListItem().getText() + '\n';
+        skillsText += element.asListItem().getText() + "\n";
       } else if (elementType === DocumentApp.ElementType.TABLE) {
         const table = element.asTable();
         for (let r = 0; r < table.getNumRows(); r++) {
           const row = table.getRow(r);
           for (let c = 0; c < row.getNumCells(); c++) {
-            skillsText += row.getCell(c).getText() + '\n';
+            skillsText += row.getCell(c).getText() + "\n";
           }
         }
       }
@@ -1072,10 +1140,19 @@ function addSkillSimple(skill, docId) {
     const skillsText = getSkillsSectionText(body);
     if (skillsText && skillsText.toLowerCase().includes(skill.toLowerCase())) {
       doc.saveAndClose();
-      return { success: false, error: 'This skill is already in your Skills section.' };
+      return {
+        success: false,
+        error: "This skill is already in your Skills section.",
+      };
     }
 
-    const skillsSectionNames = ['SKILLS', 'TECHNICAL SKILLS', 'COMPETENCIES', 'EXPERTISE', 'TECHNOLOGIES'];
+    const skillsSectionNames = [
+      "SKILLS",
+      "TECHNICAL SKILLS",
+      "COMPETENCIES",
+      "EXPERTISE",
+      "TECHNOLOGIES",
+    ];
     let skillsSectionIndex = -1;
     const numChildren = body.getNumChildren();
 
@@ -1084,7 +1161,7 @@ function addSkillSimple(skill, docId) {
       const element = body.getChild(i);
       if (element.getType() === DocumentApp.ElementType.PARAGRAPH) {
         const text = element.asParagraph().getText().trim().toUpperCase();
-        if (skillsSectionNames.some(name => text.includes(name))) {
+        if (skillsSectionNames.some((name) => text.includes(name))) {
           skillsSectionIndex = i;
           break;
         }
@@ -1093,7 +1170,10 @@ function addSkillSimple(skill, docId) {
 
     if (skillsSectionIndex === -1) {
       doc.saveAndClose();
-      return { success: false, error: 'Could not find Skills section in your resume.' };
+      return {
+        success: false,
+        error: "Could not find Skills section in your resume.",
+      };
     }
 
     // Find content after the Skills header
@@ -1105,22 +1185,29 @@ function addSkillSimple(skill, docId) {
       if (elementType === DocumentApp.ElementType.PARAGRAPH) {
         const para = element.asParagraph();
         const text = para.getText().trim();
-        if (text && (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
-            text === text.toUpperCase() || isSectionHeader(text))) {
+        if (
+          text &&
+          (para.getHeading() !== DocumentApp.ParagraphHeading.NORMAL ||
+            text === text.toUpperCase() ||
+            isSectionHeader(text))
+        ) {
           break;
         }
 
         if (text && text.length > 10) {
           const currentText = para.getText();
 
-          let separator = ', ';
-          if (currentText.includes(' | ')) separator = ' | ';
-          else if (currentText.includes(' • ')) separator = ' • ';
-          else if (currentText.includes('; ')) separator = '; ';
+          let separator = ", ";
+          if (currentText.includes(" | ")) separator = " | ";
+          else if (currentText.includes(" • ")) separator = " • ";
+          else if (currentText.includes("; ")) separator = "; ";
 
           para.editAsText().appendText(separator + skill);
           doc.saveAndClose();
-          return { success: true, message: `Added "${skill}" to your Skills section.` };
+          return {
+            success: true,
+            message: `Added "${skill}" to your Skills section.`,
+          };
         }
       }
 
@@ -1131,24 +1218,32 @@ function addSkillSimple(skill, docId) {
         newItem.setGlyphType(listItem.getGlyphType());
         newItem.setNestingLevel(listItem.getNestingLevel());
         doc.saveAndClose();
-        return { success: true, message: `Added "${skill}" to your Skills section.` };
+        return {
+          success: true,
+          message: `Added "${skill}" to your Skills section.`,
+        };
       }
 
       if (elementType === DocumentApp.ElementType.TABLE) {
         const result = addSkillToTable(element.asTable(), skill);
         if (result.added) {
           doc.saveAndClose();
-          return { success: true, message: `Added "${skill}" to your Skills section.` };
+          return {
+            success: true,
+            message: `Added "${skill}" to your Skills section.`,
+          };
         }
       }
     }
 
     const newPara = body.insertParagraph(skillsSectionIndex + 1, skill);
     doc.saveAndClose();
-    return { success: true, message: `Added "${skill}" to your Skills section.` };
-
+    return {
+      success: true,
+      message: `Added "${skill}" to your Skills section.`,
+    };
   } catch (error) {
-    console.error('Error adding skill (simple):', error);
+    console.error("Error adding skill (simple):", error);
     return { success: false, error: error.message };
   }
 }
@@ -1166,7 +1261,7 @@ function createResumeCopy(candidateName, companyName, positionTitle) {
   const templateInfo = getTemplateInfo();
 
   if (!templateInfo.hasTemplate) {
-    throw new Error('No template resume set. Please set a template first.');
+    throw new Error("No template resume set. Please set a template first.");
   }
 
   const templateFile = DriveApp.getFileById(templateInfo.templateId);
@@ -1175,9 +1270,18 @@ function createResumeCopy(candidateName, companyName, positionTitle) {
     : DriveApp.getRootFolder();
 
   // Clean up the name components
-  const cleanName = (candidateName || 'Resume').replace(/[^a-zA-Z0-9\s\-]/g, '').trim().substring(0, 30);
-  const cleanCompany = (companyName || 'Company').replace(/[^a-zA-Z0-9\s\-]/g, '').trim().substring(0, 30);
-  const cleanPosition = (positionTitle || 'Position').replace(/[^a-zA-Z0-9\s\-]/g, '').trim().substring(0, 30);
+  const cleanName = (candidateName || "Resume")
+    .replace(/[^a-zA-Z0-9\s\-]/g, "")
+    .trim()
+    .substring(0, 30);
+  const cleanCompany = (companyName || "Company")
+    .replace(/[^a-zA-Z0-9\s\-]/g, "")
+    .trim()
+    .substring(0, 30);
+  const cleanPosition = (positionTitle || "Position")
+    .replace(/[^a-zA-Z0-9\s\-]/g, "")
+    .trim()
+    .substring(0, 30);
 
   // Format: Name - Company - Position
   const copyName = `${cleanName} - ${cleanCompany} - ${cleanPosition}`;
@@ -1188,7 +1292,7 @@ function createResumeCopy(candidateName, companyName, positionTitle) {
     success: true,
     copyId: copy.getId(),
     copyName: copy.getName(),
-    copyUrl: copy.getUrl()
+    copyUrl: copy.getUrl(),
   };
 }
 
@@ -1218,7 +1322,7 @@ function getCandidateName(docId) {
 
     return null;
   } catch (e) {
-    console.error('Error getting candidate name:', e);
+    console.error("Error getting candidate name:", e);
     return null;
   }
 }
@@ -1250,44 +1354,56 @@ function extractNameFromSection(section) {
     // Second pass: Look for any paragraph that looks like a name
     for (let i = 0; i < Math.min(paragraphs.length, 10); i++) {
       const text = paragraphs[i].getText().trim();
-      if (text && text.length > 1 && text.length < 50 && !isSectionHeader(text)) {
+      if (
+        text &&
+        text.length > 1 &&
+        text.length < 50 &&
+        !isSectionHeader(text)
+      ) {
         // Skip if it looks like contact info (email, phone, address, URL)
-        if (!text.includes('@') &&
-            !text.match(/^\+?\d[\d\s\-()]+$/) &&
-            !text.match(/^\d+\s/) &&
-            !text.match(/^https?:\/\//) &&
-            !text.toLowerCase().includes('linkedin') &&
-            !text.toLowerCase().includes('github')) {
+        if (
+          !text.includes("@") &&
+          !text.match(/^\+?\d[\d\s\-()]+$/) &&
+          !text.match(/^\d+\s/) &&
+          !text.match(/^https?:\/\//) &&
+          !text.toLowerCase().includes("linkedin") &&
+          !text.toLowerCase().includes("github")
+        ) {
           return text;
         }
       }
     }
   } catch (e) {
     // getParagraphs() might not be available, fall back to child iteration
-    console.log('getParagraphs failed, trying child iteration:', e);
+    console.log("getParagraphs failed, trying child iteration:", e);
   }
 
   // Approach 2: Fall back to getText() and parse lines
   try {
     const allText = section.getText();
     if (allText) {
-      const lines = allText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      const lines = allText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
       for (const line of lines.slice(0, 10)) {
         if (line.length > 1 && line.length < 50 && !isSectionHeader(line)) {
           // Skip contact info
-          if (!line.includes('@') &&
-              !line.match(/^\+?\d[\d\s\-()]+$/) &&
-              !line.match(/^\d+\s/) &&
-              !line.match(/^https?:\/\//) &&
-              !line.toLowerCase().includes('linkedin') &&
-              !line.toLowerCase().includes('github')) {
+          if (
+            !line.includes("@") &&
+            !line.match(/^\+?\d[\d\s\-()]+$/) &&
+            !line.match(/^\d+\s/) &&
+            !line.match(/^https?:\/\//) &&
+            !line.toLowerCase().includes("linkedin") &&
+            !line.toLowerCase().includes("github")
+          ) {
             return line;
           }
         }
       }
     }
   } catch (e) {
-    console.log('getText failed:', e);
+    console.log("getText failed:", e);
   }
 
   // Approach 3: Original child iteration method
@@ -1320,9 +1436,18 @@ function extractNameFromSection(section) {
     if (elementType === DocumentApp.ElementType.PARAGRAPH) {
       const text = element.asParagraph().getText().trim();
       // Skip empty lines, section headers, and text that looks like contact info
-      if (text && text.length > 1 && text.length < 50 && !isSectionHeader(text)) {
+      if (
+        text &&
+        text.length > 1 &&
+        text.length < 50 &&
+        !isSectionHeader(text)
+      ) {
         // Skip if it looks like an email, phone, or address
-        if (!text.includes('@') && !text.match(/^\+?\d[\d\s\-()]+$/) && !text.match(/^\d+\s/)) {
+        if (
+          !text.includes("@") &&
+          !text.match(/^\+?\d[\d\s\-()]+$/) &&
+          !text.match(/^\d+\s/)
+        ) {
           return text;
         }
       }
@@ -1332,8 +1457,13 @@ function extractNameFromSection(section) {
       if (table.getNumRows() > 0 && table.getRow(0).getNumCells() > 0) {
         const firstCellText = table.getRow(0).getCell(0).getText().trim();
         // Check if first cell looks like a name (not too long, not a section header)
-        if (firstCellText && firstCellText.length > 1 && firstCellText.length < 50 &&
-            !isSectionHeader(firstCellText) && !firstCellText.includes('@')) {
+        if (
+          firstCellText &&
+          firstCellText.length > 1 &&
+          firstCellText.length < 50 &&
+          !isSectionHeader(firstCellText) &&
+          !firstCellText.includes("@")
+        ) {
           return firstCellText;
         }
       }
@@ -1365,8 +1495,10 @@ function applyChangeToDoc(docId, originalText, newText) {
       // Get the parent paragraph or list item
       const parent = element.getParent();
 
-      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
-          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+        parent.getType() === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const text = parent.editAsText();
 
         // Capture formatting from the start of the original text
@@ -1381,27 +1513,33 @@ function applyChangeToDoc(docId, originalText, newText) {
       }
 
       doc.saveAndClose();
-      return { success: true, message: 'Change applied successfully' };
+      return { success: true, message: "Change applied successfully" };
     }
 
     // If exact match not found, try to find the element containing similar text
-    const normalizedOriginal = originalText.toLowerCase().replace(/\s+/g, ' ').trim();
+    const normalizedOriginal = originalText
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
     const numChildren = body.getNumChildren();
 
     for (let i = 0; i < numChildren; i++) {
       const element = body.getChild(i);
       const elementType = element.getType();
 
-      if (elementType === DocumentApp.ElementType.PARAGRAPH ||
-          elementType === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        elementType === DocumentApp.ElementType.PARAGRAPH ||
+        elementType === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const textElement = element.asText();
         const text = textElement.getText();
-        const normalizedText = text.toLowerCase().replace(/\s+/g, ' ').trim();
+        const normalizedText = text.toLowerCase().replace(/\s+/g, " ").trim();
 
         // Check for substantial overlap
-        if (normalizedText.includes(normalizedOriginal.substring(0, 30)) ||
-            normalizedOriginal.includes(normalizedText.substring(0, 30))) {
-
+        if (
+          normalizedText.includes(normalizedOriginal.substring(0, 30)) ||
+          normalizedOriginal.includes(normalizedText.substring(0, 30))
+        ) {
           // Capture formatting from the start of the element
           const formatting = captureFormatting(textElement, 0);
 
@@ -1412,7 +1550,7 @@ function applyChangeToDoc(docId, originalText, newText) {
           applyFormatting(textElement, 0, newText.length - 1, formatting);
 
           doc.saveAndClose();
-          return { success: true, message: 'Change applied successfully' };
+          return { success: true, message: "Change applied successfully" };
         }
       }
     }
@@ -1420,11 +1558,11 @@ function applyChangeToDoc(docId, originalText, newText) {
     doc.saveAndClose();
     return {
       success: false,
-      message: 'Could not find the original text to replace. You may need to apply this change manually.'
+      message:
+        "Could not find the original text to replace. You may need to apply this change manually.",
     };
-
   } catch (error) {
-    console.error('Error applying change:', error);
+    console.error("Error applying change:", error);
     return { success: false, message: error.message };
   }
 }
@@ -1443,7 +1581,7 @@ function captureFormatting(textElement, offset) {
     italic: textElement.isItalic(offset),
     underline: textElement.isUnderline(offset),
     strikethrough: textElement.isStrikethrough(offset),
-    foregroundColor: textElement.getForegroundColor(offset)
+    foregroundColor: textElement.getForegroundColor(offset),
   };
 }
 
@@ -1484,7 +1622,7 @@ function applyFormatting(textElement, start, end, formatting) {
  * Escapes special regex characters in a string.
  */
 function escapeRegex(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
@@ -1492,13 +1630,13 @@ function escapeRegex(string) {
  * Removes extra whitespace, normalizes quotes, dashes, etc.
  */
 function normalizeTextForMatch(text) {
-  if (!text) return '';
+  if (!text) return "";
   return text
-    .replace(/[\u2018\u2019]/g, "'")  // Smart quotes to straight
-    .replace(/[\u201C\u201D]/g, '"')  // Smart double quotes
-    .replace(/[\u2013\u2014]/g, '-')  // En/em dash to hyphen
-    .replace(/\s+/g, ' ')             // Multiple spaces to single
-    .replace(/\u00A0/g, ' ')          // Non-breaking space to space
+    .replace(/[\u2018\u2019]/g, "'") // Smart quotes to straight
+    .replace(/[\u201C\u201D]/g, '"') // Smart double quotes
+    .replace(/[\u2013\u2014]/g, "-") // En/em dash to hyphen
+    .replace(/\s+/g, " ") // Multiple spaces to single
+    .replace(/\u00A0/g, " ") // Non-breaking space to space
     .trim();
 }
 
@@ -1511,16 +1649,16 @@ function fuzzyTextMatch(searchText, documentText) {
   const normDoc = normalizeTextForMatch(documentText);
 
   if (normDoc === normSearch) {
-    return { match: 'exact', docText: documentText };
+    return { match: "exact", docText: documentText };
   }
 
   if (normDoc.includes(normSearch)) {
-    return { match: 'contains', docText: documentText };
+    return { match: "contains", docText: documentText };
   }
 
   // Try matching first 50 chars (in case AI truncated)
   if (normSearch.length > 50 && normDoc.includes(normSearch.substring(0, 50))) {
-    return { match: 'partial', docText: documentText };
+    return { match: "partial", docText: documentText };
   }
 
   return null;
@@ -1550,8 +1688,10 @@ function applySuggestedChangeVisual(docId, originalText, newText, reason) {
       const end = found.getEndOffsetInclusive();
       const parent = element.getParent();
 
-      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
-          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+        parent.getType() === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const text = parent.editAsText();
 
         // Capture original formatting
@@ -1559,7 +1699,7 @@ function applySuggestedChangeVisual(docId, originalText, newText, reason) {
 
         // Apply strikethrough and red color to original text (marking for deletion)
         text.setStrikethrough(start, end, true);
-        text.setForegroundColor(start, end, '#ea4335'); // Red for deletion
+        text.setForegroundColor(start, end, "#ea4335"); // Red for deletion
 
         // Insert the new text right after the original
         const insertPos = end + 1;
@@ -1567,62 +1707,74 @@ function applySuggestedChangeVisual(docId, originalText, newText, reason) {
 
         // Apply formatting to new text: green color, preserve other formatting
         const newEnd = insertPos + newText.length - 1;
-        if (formatting.fontFamily) text.setFontFamily(insertPos, newEnd, formatting.fontFamily);
-        if (formatting.fontSize) text.setFontSize(insertPos, newEnd, formatting.fontSize);
+        if (formatting.fontFamily)
+          text.setFontFamily(insertPos, newEnd, formatting.fontFamily);
+        if (formatting.fontSize)
+          text.setFontSize(insertPos, newEnd, formatting.fontSize);
         text.setBold(insertPos, newEnd, formatting.bold || false);
         text.setItalic(insertPos, newEnd, formatting.italic || false);
-        text.setForegroundColor(insertPos, newEnd, '#34a853'); // Green for addition
+        text.setForegroundColor(insertPos, newEnd, "#34a853"); // Green for addition
         text.setStrikethrough(insertPos, newEnd, false);
       }
 
       doc.saveAndClose();
-      return { success: true, message: 'Suggestion applied' };
+      return { success: true, message: "Suggestion applied" };
     }
 
     // Fallback: try to find similar text using fuzzy match
-    const normalizedOriginal = originalText.toLowerCase().replace(/\s+/g, ' ').trim();
+    const normalizedOriginal = originalText
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
     const numChildren = body.getNumChildren();
 
     for (let i = 0; i < numChildren; i++) {
       const element = body.getChild(i);
       const elementType = element.getType();
 
-      if (elementType === DocumentApp.ElementType.PARAGRAPH ||
-          elementType === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        elementType === DocumentApp.ElementType.PARAGRAPH ||
+        elementType === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const textElement = element.asText();
         const text = textElement.getText();
-        const normalizedText = text.toLowerCase().replace(/\s+/g, ' ').trim();
+        const normalizedText = text.toLowerCase().replace(/\s+/g, " ").trim();
 
-        if (normalizedText.includes(normalizedOriginal.substring(0, 30)) ||
-            normalizedOriginal.includes(normalizedText.substring(0, 30))) {
-
+        if (
+          normalizedText.includes(normalizedOriginal.substring(0, 30)) ||
+          normalizedOriginal.includes(normalizedText.substring(0, 30))
+        ) {
           const formatting = captureFormatting(textElement, 0);
           const originalLength = text.length;
 
           textElement.setStrikethrough(0, originalLength - 1, true);
-          textElement.setForegroundColor(0, originalLength - 1, '#ea4335');
+          textElement.setForegroundColor(0, originalLength - 1, "#ea4335");
           textElement.appendText(newText);
 
           const newStart = originalLength;
           const newEnd = newStart + newText.length - 1;
-          if (formatting.fontFamily) textElement.setFontFamily(newStart, newEnd, formatting.fontFamily);
-          if (formatting.fontSize) textElement.setFontSize(newStart, newEnd, formatting.fontSize);
+          if (formatting.fontFamily)
+            textElement.setFontFamily(newStart, newEnd, formatting.fontFamily);
+          if (formatting.fontSize)
+            textElement.setFontSize(newStart, newEnd, formatting.fontSize);
           textElement.setBold(newStart, newEnd, formatting.bold || false);
           textElement.setItalic(newStart, newEnd, formatting.italic || false);
-          textElement.setForegroundColor(newStart, newEnd, '#34a853');
+          textElement.setForegroundColor(newStart, newEnd, "#34a853");
           textElement.setStrikethrough(newStart, newEnd, false);
 
           doc.saveAndClose();
-          return { success: true, message: 'Suggestion applied visually' };
+          return { success: true, message: "Suggestion applied visually" };
         }
       }
     }
 
     doc.saveAndClose();
-    return { success: false, message: 'Could not find text to suggest change for.' };
-
+    return {
+      success: false,
+      message: "Could not find text to suggest change for.",
+    };
   } catch (error) {
-    console.error('Error applying visual suggestion:', error);
+    console.error("Error applying visual suggestion:", error);
     return { success: false, message: error.message };
   }
 }
@@ -1647,8 +1799,10 @@ function acceptSuggestedChange(docId, originalText, newText) {
       const start = found.getStartOffset();
       const parent = element.getParent();
 
-      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
-          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+        parent.getType() === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const text = parent.editAsText();
 
         // Get formatting from the new text
@@ -1663,14 +1817,16 @@ function acceptSuggestedChange(docId, originalText, newText) {
       }
 
       doc.saveAndClose();
-      return { success: true, message: 'Change accepted' };
+      return { success: true, message: "Change accepted" };
     }
 
     doc.saveAndClose();
-    return { success: false, message: 'Could not find the suggested change to accept.' };
-
+    return {
+      success: false,
+      message: "Could not find the suggested change to accept.",
+    };
   } catch (error) {
-    console.error('Error accepting suggestion:', error);
+    console.error("Error accepting suggestion:", error);
     return { success: false, message: error.message };
   }
 }
@@ -1695,8 +1851,10 @@ function rejectSuggestedChange(docId, originalText, newText) {
       const start = found.getStartOffset();
       const parent = element.getParent();
 
-      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
-          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+        parent.getType() === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const text = parent.editAsText();
 
         // Delete the new (green) text
@@ -1709,14 +1867,16 @@ function rejectSuggestedChange(docId, originalText, newText) {
       }
 
       doc.saveAndClose();
-      return { success: true, message: 'Change rejected' };
+      return { success: true, message: "Change rejected" };
     }
 
     doc.saveAndClose();
-    return { success: false, message: 'Could not find the suggested change to reject.' };
-
+    return {
+      success: false,
+      message: "Could not find the suggested change to reject.",
+    };
   } catch (error) {
-    console.error('Error rejecting suggestion:', error);
+    console.error("Error rejecting suggestion:", error);
     return { success: false, message: error.message };
   }
 }
@@ -1744,17 +1904,19 @@ function markContentForRemoval(docId, content) {
       // Apply red strikethrough to indicate removal suggestion
       const text = element.editAsText();
       text.setStrikethrough(start, end, true);
-      text.setForegroundColor(start, end, '#ea4335'); // Red color
+      text.setForegroundColor(start, end, "#ea4335"); // Red color
 
       doc.saveAndClose();
-      return { success: true, message: 'Content marked for removal' };
+      return { success: true, message: "Content marked for removal" };
     }
 
     doc.saveAndClose();
-    return { success: false, message: 'Could not find content to mark for removal.' };
-
+    return {
+      success: false,
+      message: "Could not find content to mark for removal.",
+    };
   } catch (error) {
-    console.error('Error marking content for removal:', error);
+    console.error("Error marking content for removal:", error);
     return { success: false, message: error.message };
   }
 }
@@ -1782,9 +1944,11 @@ function acceptRemoval(docId, content) {
       const parent = element.getParent();
 
       // Get the parent text using the correct method
-      let parentText = '';
-      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
-          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      let parentText = "";
+      if (
+        parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+        parent.getType() === DocumentApp.ElementType.LIST_ITEM
+      ) {
         parentText = parent.getText();
       } else if (element.getText) {
         parentText = element.getText();
@@ -1800,7 +1964,7 @@ function acceptRemoval(docId, content) {
       }
 
       doc.saveAndClose();
-      return { success: true, message: 'Content removed' };
+      return { success: true, message: "Content removed" };
     }
 
     // Try a more lenient search if exact match failed
@@ -1813,14 +1977,14 @@ function acceptRemoval(docId, content) {
       if (trimmedParaText === normalizedContent) {
         para.removeFromParent();
         doc.saveAndClose();
-        return { success: true, message: 'Content removed' };
+        return { success: true, message: "Content removed" };
       } else if (originalParaText.includes(normalizedContent)) {
         const text = para.editAsText();
         const idx = originalParaText.indexOf(normalizedContent);
         if (idx >= 0) {
           text.deleteText(idx, idx + normalizedContent.length - 1);
           doc.saveAndClose();
-          return { success: true, message: 'Content removed' };
+          return { success: true, message: "Content removed" };
         }
       }
     }
@@ -1835,14 +1999,14 @@ function acceptRemoval(docId, content) {
       if (trimmedItemText === normalizedContent) {
         listItem.removeFromParent();
         doc.saveAndClose();
-        return { success: true, message: 'Content removed' };
+        return { success: true, message: "Content removed" };
       } else if (originalItemText.includes(normalizedContent)) {
         const text = listItem.editAsText();
         const idx = originalItemText.indexOf(normalizedContent);
         if (idx >= 0) {
           text.deleteText(idx, idx + normalizedContent.length - 1);
           doc.saveAndClose();
-          return { success: true, message: 'Content removed' };
+          return { success: true, message: "Content removed" };
         }
       }
     }
@@ -1862,9 +2026,11 @@ function acceptRemoval(docId, content) {
           if (cellText.includes(normalizedContent)) {
             const idx = cellText.indexOf(normalizedContent);
             if (idx >= 0) {
-              cell.editAsText().deleteText(idx, idx + normalizedContent.length - 1);
+              cell
+                .editAsText()
+                .deleteText(idx, idx + normalizedContent.length - 1);
               doc.saveAndClose();
-              return { success: true, message: 'Content removed' };
+              return { success: true, message: "Content removed" };
             }
           }
         }
@@ -1882,18 +2048,26 @@ function acceptRemoval(docId, content) {
       const fuzzyResult = fuzzyTextMatch(normalizedContent, originalParaText);
 
       if (fuzzyResult) {
-        if (fuzzyResult.match === 'exact') {
+        if (fuzzyResult.match === "exact") {
           para.removeFromParent();
           doc.saveAndClose();
-          return { success: true, message: 'Content removed' };
-        } else if (fuzzyResult.match === 'contains' || fuzzyResult.match === 'partial') {
+          return { success: true, message: "Content removed" };
+        } else if (
+          fuzzyResult.match === "contains" ||
+          fuzzyResult.match === "partial"
+        ) {
           const normPara = normalizeTextForMatch(originalParaText);
           const normIdx = normPara.indexOf(normalizedSearch);
           if (normIdx >= 0) {
-            const searchStart = normalizedContent.substring(0, Math.min(30, normalizedContent.length));
+            const searchStart = normalizedContent.substring(
+              0,
+              Math.min(30, normalizedContent.length),
+            );
             const actualIdx = originalParaText.indexOf(searchStart);
             if (actualIdx >= 0) {
-              const searchEnd = normalizedContent.substring(Math.max(0, normalizedContent.length - 30));
+              const searchEnd = normalizedContent.substring(
+                Math.max(0, normalizedContent.length - 30),
+              );
               let endIdx = originalParaText.indexOf(searchEnd, actualIdx);
               if (endIdx >= 0) {
                 endIdx = endIdx + searchEnd.length - 1;
@@ -1905,7 +2079,7 @@ function acceptRemoval(docId, content) {
               }
               para.editAsText().deleteText(actualIdx, endIdx);
               doc.saveAndClose();
-              return { success: true, message: 'Content removed' };
+              return { success: true, message: "Content removed" };
             }
           }
         }
@@ -1918,18 +2092,21 @@ function acceptRemoval(docId, content) {
       const originalItemText = listItem.getText();
       const fuzzyResult = fuzzyTextMatch(normalizedContent, originalItemText);
 
-      if (fuzzyResult && fuzzyResult.match === 'exact') {
+      if (fuzzyResult && fuzzyResult.match === "exact") {
         listItem.removeFromParent();
         doc.saveAndClose();
-        return { success: true, message: 'Content removed' };
+        return { success: true, message: "Content removed" };
       }
     }
 
     doc.saveAndClose();
-    return { success: false, message: 'Could not find content to remove. The text may have been modified.' };
-
+    return {
+      success: false,
+      message:
+        "Could not find content to remove. The text may have been modified.",
+    };
   } catch (error) {
-    console.error('Error accepting removal:', error);
+    console.error("Error accepting removal:", error);
     return { success: false, message: error.message };
   }
 }
@@ -1961,7 +2138,7 @@ function rejectRemoval(docId, content) {
       text.setForegroundColor(start, end, null); // Reset to default
 
       doc.saveAndClose();
-      return { success: true, message: 'Content kept' };
+      return { success: true, message: "Content kept" };
     }
 
     // Try fallback search in paragraphs and list items
@@ -1974,10 +2151,14 @@ function rejectRemoval(docId, content) {
         const idx = paraText.indexOf(normalizedContent);
         if (idx >= 0) {
           text.setStrikethrough(idx, idx + normalizedContent.length - 1, false);
-          text.setForegroundColor(idx, idx + normalizedContent.length - 1, null);
+          text.setForegroundColor(
+            idx,
+            idx + normalizedContent.length - 1,
+            null,
+          );
         }
         doc.saveAndClose();
-        return { success: true, message: 'Content kept' };
+        return { success: true, message: "Content kept" };
       }
     }
 
@@ -1990,10 +2171,14 @@ function rejectRemoval(docId, content) {
         const idx = itemText.indexOf(normalizedContent);
         if (idx >= 0) {
           text.setStrikethrough(idx, idx + normalizedContent.length - 1, false);
-          text.setForegroundColor(idx, idx + normalizedContent.length - 1, null);
+          text.setForegroundColor(
+            idx,
+            idx + normalizedContent.length - 1,
+            null,
+          );
         }
         doc.saveAndClose();
-        return { success: true, message: 'Content kept' };
+        return { success: true, message: "Content kept" };
       }
     }
 
@@ -2012,10 +2197,18 @@ function rejectRemoval(docId, content) {
             const idx = cellText.indexOf(normalizedContent);
             if (idx >= 0) {
               const text = cell.editAsText();
-              text.setStrikethrough(idx, idx + normalizedContent.length - 1, false);
-              text.setForegroundColor(idx, idx + normalizedContent.length - 1, null);
+              text.setStrikethrough(
+                idx,
+                idx + normalizedContent.length - 1,
+                false,
+              );
+              text.setForegroundColor(
+                idx,
+                idx + normalizedContent.length - 1,
+                null,
+              );
               doc.saveAndClose();
-              return { success: true, message: 'Content kept' };
+              return { success: true, message: "Content kept" };
             }
           }
         }
@@ -2023,10 +2216,9 @@ function rejectRemoval(docId, content) {
     }
 
     doc.saveAndClose();
-    return { success: false, message: 'Could not find content to restore.' };
-
+    return { success: false, message: "Could not find content to restore." };
   } catch (error) {
-    console.error('Error rejecting removal:', error);
+    console.error("Error rejecting removal:", error);
     return { success: false, message: error.message };
   }
 }
@@ -2040,7 +2232,12 @@ function rejectRemoval(docId, content) {
  * @param {string} newTailored - The new rephrased text
  * @returns {Object} Result with success status
  */
-function updateSuggestedChangeVisual(docId, originalText, oldTailored, newTailored) {
+function updateSuggestedChangeVisual(
+  docId,
+  originalText,
+  oldTailored,
+  newTailored,
+) {
   try {
     const doc = DocumentApp.openById(docId);
     const body = doc.getBody();
@@ -2054,8 +2251,10 @@ function updateSuggestedChangeVisual(docId, originalText, oldTailored, newTailor
       const start = found.getStartOffset();
       const parent = element.getParent();
 
-      if (parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
-          parent.getType() === DocumentApp.ElementType.LIST_ITEM) {
+      if (
+        parent.getType() === DocumentApp.ElementType.PARAGRAPH ||
+        parent.getType() === DocumentApp.ElementType.LIST_ITEM
+      ) {
         const text = parent.editAsText();
 
         // Calculate positions
@@ -2073,23 +2272,43 @@ function updateSuggestedChangeVisual(docId, originalText, oldTailored, newTailor
 
         // Apply green formatting to the new text
         const newTailoredEnd = oldTailoredStart + newTailored.length - 1;
-        if (formatting.fontFamily) text.setFontFamily(oldTailoredStart, newTailoredEnd, formatting.fontFamily);
-        if (formatting.fontSize) text.setFontSize(oldTailoredStart, newTailoredEnd, formatting.fontSize);
-        text.setBold(oldTailoredStart, newTailoredEnd, formatting.bold || false);
-        text.setItalic(oldTailoredStart, newTailoredEnd, formatting.italic || false);
-        text.setForegroundColor(oldTailoredStart, newTailoredEnd, '#34a853'); // Green
+        if (formatting.fontFamily)
+          text.setFontFamily(
+            oldTailoredStart,
+            newTailoredEnd,
+            formatting.fontFamily,
+          );
+        if (formatting.fontSize)
+          text.setFontSize(
+            oldTailoredStart,
+            newTailoredEnd,
+            formatting.fontSize,
+          );
+        text.setBold(
+          oldTailoredStart,
+          newTailoredEnd,
+          formatting.bold || false,
+        );
+        text.setItalic(
+          oldTailoredStart,
+          newTailoredEnd,
+          formatting.italic || false,
+        );
+        text.setForegroundColor(oldTailoredStart, newTailoredEnd, "#34a853"); // Green
         text.setStrikethrough(oldTailoredStart, newTailoredEnd, false);
       }
 
       doc.saveAndClose();
-      return { success: true, message: 'Suggestion updated in document' };
+      return { success: true, message: "Suggestion updated in document" };
     }
 
     doc.saveAndClose();
-    return { success: false, message: 'Could not find the original suggestion to update.' };
-
+    return {
+      success: false,
+      message: "Could not find the original suggestion to update.",
+    };
   } catch (error) {
-    console.error('Error updating visual suggestion:', error);
+    console.error("Error updating visual suggestion:", error);
     return { success: false, message: error.message };
   }
 }
@@ -2105,7 +2324,12 @@ function applyAllSuggestionsVisual(docId, changes) {
   let failed = 0;
 
   for (const change of changes) {
-    const result = applySuggestedChangeVisual(docId, change.original, change.tailored, change.reason);
+    const result = applySuggestedChangeVisual(
+      docId,
+      change.original,
+      change.tailored,
+      change.reason,
+    );
     if (result.success) {
       applied++;
     } else {
@@ -2117,7 +2341,7 @@ function applyAllSuggestionsVisual(docId, changes) {
     success: true,
     applied: applied,
     failed: failed,
-    message: `Applied ${applied} of ${changes.length} suggestions to the document.`
+    message: `Applied ${applied} of ${changes.length} suggestions to the document.`,
   };
 }
 
@@ -2126,18 +2350,25 @@ function applyAllSuggestionsVisual(docId, changes) {
 function createHomepageCard() {
   const card = CardService.newCardBuilder();
 
-  card.setHeader(CardService.newCardHeader()
-    .setTitle('Resume Tailor')
-    .setSubtitle('Customize your resume for any job'));
+  card.setHeader(
+    CardService.newCardHeader()
+      .setTitle("Resume Tailor")
+      .setSubtitle("Customize your resume for any job"),
+  );
 
   const section = CardService.newCardSection();
 
-  section.addWidget(CardService.newTextParagraph()
-    .setText('Analyze job descriptions and create tailored copies of your resume - while keeping your authentic voice.'));
+  section.addWidget(
+    CardService.newTextParagraph().setText(
+      "Analyze job descriptions and create tailored copies of your resume - while keeping your authentic voice.",
+    ),
+  );
 
-  section.addWidget(CardService.newTextButton()
-    .setText('Open Resume Tailor')
-    .setOnClickAction(CardService.newAction().setFunctionName('showSidebar')));
+  section.addWidget(
+    CardService.newTextButton()
+      .setText("Open Resume Tailor")
+      .setOnClickAction(CardService.newAction().setFunctionName("showSidebar")),
+  );
 
   card.addSection(section);
 
